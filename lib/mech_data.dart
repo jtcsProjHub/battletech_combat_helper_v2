@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 import 'dart:io' show File;
+import 'package:tuple/tuple.dart';
 
 import 'package:flutter/services.dart' show rootBundle;
 
@@ -28,7 +29,7 @@ class Mech {
   final Map<String, int> armorByLocation; // optional armor by location
   final int structureTotal; // total internal structure points
   final Map<String, int> structureByLocation; // optional structure by location
-  final int heatSinks;
+  final Tuple2<int, int>? heatSinkTypeAndNumber; // (type, number) for heat sinks
   final int maxHeat; // optional thermal limit (0 if not used)
 
   // Equipment & weapons
@@ -60,7 +61,7 @@ class Mech {
     this.armorByLocation = const {},
     this.structureTotal = 0,
     this.structureByLocation = const {},
-    this.heatSinks = 0,
+    this.heatSinkTypeAndNumber = const Tuple2(1, 0),
     this.maxHeat = 0,
     this.weapons = const [],
     this.equipment = const [],
@@ -86,7 +87,7 @@ class Mech {
     Map<String, int>? armorByLocation,
     int? structureTotal,
     Map<String, int>? structureByLocation,
-    int? heatSinks,
+    Tuple2<int, int>? heatSinkTypeAndNumber, // (type, number) for heat sinks
     int? maxHeat,
     List<Weapon>? weapons,
     List<Equipment>? equipment,
@@ -111,7 +112,7 @@ class Mech {
       armorByLocation: armorByLocation ?? this.armorByLocation,
       structureTotal: structureTotal ?? this.structureTotal,
       structureByLocation: structureByLocation ?? this.structureByLocation,
-      heatSinks: heatSinks ?? this.heatSinks,
+      heatSinkTypeAndNumber: heatSinkTypeAndNumber ?? this.heatSinkTypeAndNumber,
       maxHeat: maxHeat ?? this.maxHeat,
       weapons: weapons ?? this.weapons,
       equipment: equipment ?? this.equipment,
@@ -143,7 +144,7 @@ class Mech {
         'armorByLocation': armorByLocation,
         'structureTotal': structureTotal,
         'structureByLocation': structureByLocation,
-        'heatSinks': heatSinks,
+        'heatSinkTypeAndNumber': heatSinkTypeAndNumber,
         'maxHeat': maxHeat,
         'weapons': weapons.map((w) => w.toJson()).toList(),
         'equipment': equipment.map((e) => e.toJson()).toList(),
@@ -175,7 +176,13 @@ class Mech {
         structureByLocation: (json['structureByLocation'] as Map<String, dynamic>?)
                 ?.map((key, value) => MapEntry(key, value as int)) ??
             const {},
-        heatSinks: json['heatSinks'] as int? ?? 0,
+        heatSinkTypeAndNumber: (json['heatSinkTypeAndNumber'] is List &&
+                (json['heatSinkTypeAndNumber'] as List).length == 2)
+            ? Tuple2<int, int>(
+                (json['heatSinkTypeAndNumber'][0] as num).toInt(),
+                (json['heatSinkTypeAndNumber'][1] as num).toInt(),
+              )
+            : const Tuple2(1, 0),
         maxHeat: json['maxHeat'] as int? ?? 0,
         weapons: (json['weapons'] as List<dynamic>?)
                 ?.map((m) => Weapon.fromJson(m as Map<String, dynamic>))

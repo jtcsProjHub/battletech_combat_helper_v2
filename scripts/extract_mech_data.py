@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+from ast import Tuple
 import json
 import re
 import sys
@@ -155,6 +156,15 @@ def parse_armor_data(armor_data: dict[str, int], type: str) -> dict[str, int]:
         armor_by_location[location.split(type, 1)[1]] = armor_value
     return armor_by_location, sum(armor_by_location.values())
 
+def parse_heat_sink_data(heat_sinks: str) -> Tuple[int, int]:
+    if (heat_sinks.find("(") == -1 and heat_sinks.find(")") == -1):
+        number_sinks = parse_number(heat_sinks, integer=True) or 0
+        return (1, number_sinks)
+    else:
+        number_sinks_text = "".join([ele for ele in heat_sinks.split("(", 1)[1] if ele.isdigit()])
+        number_sinks = parse_number(number_sinks_text, integer=True) or 0
+        return (2, number_sinks)
+
 def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     joined_mech_data: dict[str, str] = {}
     for block, content in text.items():
@@ -207,6 +217,7 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     structure_by_location: dict[str, int] = {}
     armor_by_location, armor_total = parse_armor_data(dict(filter(lambda item: item[0].startswith("armor_"), joined_mech_data.items())), "armor_")
     structure_by_location, structure_total = parse_armor_data(dict(filter(lambda item: item[0].startswith("struct_"), joined_mech_data.items())), "struct_")
+    heat_sink_type_and_number = parse_heat_sink_data(joined_mech_data.get("heat_sinks", ""))
 
     mech_id = slugify(f"{name}")
     if not mech_id:
@@ -227,6 +238,8 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
         "armorByLocation": armor_by_location,
         "structureTotal": structure_total,
         "structureByLocation": structure_by_location,
+        "heatSinkTypeAndNumber": heat_sink_type_and_number,
+        "maxHeat": heat_sink_type_and_number[0] * heat_sink_type_and_number[1],
         "weapons": weapons,
         "battleValue": battle_value,
         "critTable": crit_table,
@@ -260,6 +273,7 @@ def main() -> int:
         "crit_right_leg": (factor * 1350, factor * 2890, factor * 1700, factor * 3100),
         "crit_head": (factor * 865, factor * 1720, factor * 1100, factor * 1950),
         "crit_center_torso": (factor * 865, factor * 2000, factor * 1100, factor * 2450),
+        "heat_sinks": (factor * 2190, factor * 2530, factor * 2340, factor * 2580),
     }
     # The armor and structure data was the worst to extract in any sort of larger sub-image,
     # so I just made a bunch of small sub-images for each armor/structure value location.
