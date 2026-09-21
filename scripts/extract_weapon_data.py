@@ -29,7 +29,7 @@ TECH_BASE_MAP = {
 TYPE_MAP = {
     "standard": 0,
     "shot": 1,
-    "missile": 2,
+    "msl": 2,
 }
 
 ENTRY_RE = re.compile(
