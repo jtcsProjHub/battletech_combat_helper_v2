@@ -210,24 +210,28 @@ class Mech {
 class Weapon {
   final String type; // E.g. "AC/5", "LB 10-X", "Medium Laser"
   final int? heat;
-  final int? damage; // can be null for complex weapons
+  final int? heatType; // 0 = standard, 1 = per shot, 2 = per missile
+  final int? damage; // can be 0 for certain weapons
+  final int? damageType; // 0 = standard, 1 = per shot, 2 = per missile
+  final int? minRange; // minimum range (0 if none)
   final int? shortRange;
   final int? mediumRange;
   final int? longRange;
   final int? tons;
-  final int? criticals;
   final String? location; // head, leftArm, rightTorso, etc.
   final int? quantity; // how many of this weapon are mounted at this location (default 1)
 
   const Weapon({
     required this.type,
     this.heat,
+    this.heatType,
     this.damage,
+    this.damageType,
+    this.minRange = 0,
     this.shortRange,
     this.mediumRange,
     this.longRange,
     this.tons,
-    this.criticals,
     this.location,
     this.quantity = 1,
   });
@@ -235,12 +239,14 @@ class Weapon {
   Map<String, dynamic> toJson() => {
         'type': type,
         'heat': heat,
+        'heatType': heatType,
         'damage': damage,
+        'damageType': damageType,
+        'minRange': minRange,
         'shortRange': shortRange,
         'mediumRange': mediumRange,
         'longRange': longRange,
         'tons': tons,
-        'criticals': criticals,
         'location': location,
         'quantity': quantity,
       };
@@ -248,12 +254,14 @@ class Weapon {
   factory Weapon.fromJson(Map<String, dynamic> json) => Weapon(
         type: json['type'] as String? ?? '',
         heat: json['heat'] as int?,
+        heatType: json['heatType'] as int?,
         damage: json['damage'] as int?,
+        damageType: json['damageType'] as int?,
+        minRange: json['minRange'] as int? ?? 0,
         shortRange: json['shortRange'] as int?,
         mediumRange: json['mediumRange'] as int?,
         longRange: json['longRange'] as int?,
         tons: json['tons'] as int?,
-        criticals: json['criticals'] as int?,
         location: json['location'] as String?,
         quantity: json['quantity'] as int? ?? 1,
       );
