@@ -164,7 +164,7 @@ def main() -> int:
 
         weapons_era = parse_weapon_rows(entry_lines, index)
         print(f"Parsed file {index}: {file.name} contained {len(weapons_era)} entries.")
-        weapons.append(weapons_era)
+        weapons.extend(weapons_era)
 
     output_json.parent.mkdir(parents=True, exist_ok=True)
     with output_json.open("w", encoding="utf-8") as fp:

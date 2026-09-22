@@ -61,7 +61,10 @@ MOVEMENT_TYPE_MAP = {
     "vtol": 5,
 }
 
+# Global data and variables
 factor = 3 # Scale factor for coordinates based on PDF DPI (default 300 DPI)
+json_data_file = Path("/home/chief/StudioProjects/battletech_combat_helper_v2/scripts/battletech_weapons.json")
+weapons_database: list[dict[str, object | None]] = []
 
 def normalize_text(text: str) -> str:
     return re.sub(r"[ \t]+", " ", text).strip()
@@ -100,18 +103,38 @@ def split_columns(line: str) -> list[str]:
     values = [part.strip() for part in re.split(r"\s{2,}", line.strip()) if part.strip()]
     return values
 
+def grab_weapon_extended_data(weapon_entry: dict[str, object | None]) -> dict[str, object | None]:
+    database_entry = next(
+    (
+        entry
+        for entry in weapons_database
+        if str(weapon_entry.get("type", "")).strip().lower()
+        == str(entry.get("type", "")).strip().lower()
+    ),
+    None,
+    )
+    return {**weapon_entry, **{k: v for k, v in database_entry.items() if v is not None}} if database_entry else weapon_entry
 
-def parse_weapon_rows(rows: list[str]) -> list[dict[str, object | None]]:
+
+def parse_weapon_rows(rows: list[str], lookup_extended: bool = False) -> list[dict[str, object | None]]:
     if not rows:
         return []
 
-    headers = ["quantity", "type", "location"]
     parsed: list[dict[str, object | None]] = []
     for row in rows:
         item: dict[str, object | None] = {
             "type": "",
             "location": None,
             "quantity": 1,
+            "heat": None,
+            "heatType": None,
+            'damage': None,
+            'damageType': None,
+            'minRange': None,
+            'shortRange': None,
+            'mediumRange': None,
+            'longRange': None,
+            'tons': None,
         }
         # The last two characters in the row form the location tag, e.g., "LA" for left arm, "CT" for center torso.
         if len(row) >= 3:
@@ -126,6 +149,8 @@ def parse_weapon_rows(rows: list[str]) -> list[dict[str, object | None]]:
             item["type"] = " ".join(tokens).strip()
         
         if item["type"]:
+            if lookup_extended:
+                item = grab_weapon_extended_data(item)
             parsed.append(item)
     return parsed
 
@@ -167,6 +192,7 @@ def parse_heat_sink_data(heat_sinks: str) -> Tuple[int, int]:
 
 def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     joined_mech_data: dict[str, str] = {}
+    weapon_lookup = len(weapons_database) > 0
     for block, content in text.items():
         normalized = re.sub(r"\r\n?", "\n", content)
         lines = [normalize_text(line) for line in normalized.splitlines() if normalize_text(line)]
@@ -211,7 +237,7 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
 
     # Attempt to parse weapons and equipment tables.
     weapons: list[dict[str, object | None]] = []
-    weapons = parse_weapon_rows(rows = joined_mech_data.get("weapons_table", "").splitlines())
+    weapons = parse_weapon_rows(rows=joined_mech_data.get("weapons_table", "").splitlines(), lookup_extended=weapon_lookup)
 
     armor_by_location: dict[str, int] = {}
     structure_by_location: dict[str, int] = {}
@@ -313,6 +339,14 @@ def main() -> int:
     if not args.input_pdf.exists():
         print(f"Error: input PDF does not exist: {args.input_pdf}", file=sys.stderr)
         return 1
+
+    global weapons_database
+    try:
+        file = open(json_data_file, 'r', encoding='utf-8')
+        weapons_database = json.load(file)
+        file.close()
+    except OSError:
+        print(f"Unable to open file {file}, skipping")
 
     pages = convert_pdf_to_images(args.input_pdf, dpi=args.dpi)
     mechs: list[dict[str, object | None]] = []
