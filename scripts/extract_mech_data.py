@@ -300,6 +300,7 @@ def main() -> int:
         "crit_head": (factor * 865, factor * 1720, factor * 1100, factor * 1950),
         "crit_center_torso": (factor * 865, factor * 2000, factor * 1100, factor * 2450),
         "heat_sinks": (factor * 2190, factor * 2530, factor * 2340, factor * 2580),
+        "mech_image": (factor * 1130, factor * 838, factor * 1740, factor * 1640),
     }
     # The armor and structure data was the worst to extract in any sort of larger sub-image,
     # so I just made a bunch of small sub-images for each armor/structure value location.
@@ -358,19 +359,25 @@ def main() -> int:
             print(f"Saved page image: {out_image}")
 
         mech_data: dict[str, str] = {}
+        mech_thumbnail: Image.Image = None
         for box_name, box_coords in data_boxes.items():
             cropped_image = image.crop(box_coords)
             if args.save_images:
                 out_cropped = args.output_json.parent / f"page_{index:03d}_{box_name}.png"
                 cropped_image.save(out_cropped)
                 print(f"Saved cropped image: {out_cropped}")
-            if box_name.find("armor_") == -1 and box_name.find("struct_") == -1:
+            if box_name.find("armor_") == -1 and box_name.find("struct_") == -1 and box_name != "mech_image":
                 mech_data[box_name] = ocr_page(cropped_image, config="--psm 6")
-            else:
+            elif box_name != "mech_image":
                 mech_data[box_name] = ocr_page(cropped_image, config="--psm 7")
+            else:
+                mech_thumbnail = cropped_image
 
         mech = parse_mech_text(mech_data)
         mechs.append(mech)
+        if mech_thumbnail:
+            thumbnail_save = args.output_json.parent / f"thumbnails/{mech['id'] or f'mech_{index}'}.png"
+            mech_thumbnail.save(thumbnail_save)
         print(f"Parsed page {index}: {mech['id'] or 'unknown'}")
 
     args.output_json.parent.mkdir(parents=True, exist_ok=True)

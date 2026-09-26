@@ -47,4 +47,10 @@ app.*.map.json
 *.png
 *.pdf
 *.json
-*.ods
+*.ods*
+
+/scripts/thumbnails/
+/scripts/*.txt
+/scripts/*.png
+/scripts/*.pdf
+/scripts/*.json
