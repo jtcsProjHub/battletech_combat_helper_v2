@@ -45,20 +45,23 @@ except ImportError as exc:
     ) from exc
 
 TECH_BASE_MAP = {
-    "inner sphere": 0,
-    "clan": 1,
-    "mixed": 2,
-    "pirate": 3,
-    "unknown": 4,
+    "unknown": 0,
+    "inner sphere": 1,
+    "clan": 2,
+    "mixed": 3,
+    "pirate": 4,
 }
 
-MOVEMENT_TYPE_MAP = {
-    "biped": 0,
-    "quad": 1,
-    "tracked": 2,
-    "wheeled": 3,
-    "hover": 4,
-    "vtol": 5,
+ROLE_MAP = {
+    "unknown": 0,
+    "ambusher": 1,
+    "brawler": 2,
+    "juggernaut": 3,
+    "missile boat": 4,
+    "scout": 5,
+    "skirmisher": 6,
+    "sniper": 7,
+    "striker": 8,
 }
 
 # Global data and variables
@@ -103,20 +106,28 @@ def split_columns(line: str) -> list[str]:
     values = [part.strip() for part in re.split(r"\s{2,}", line.strip()) if part.strip()]
     return values
 
-def grab_weapon_extended_data(weapon_entry: dict[str, object | None]) -> dict[str, object | None]:
-    database_entry = next(
-    (
-        entry
-        for entry in weapons_database
-        if str(weapon_entry.get("type", "")).strip().lower()
-        == str(entry.get("type", "")).strip().lower()
-    ),
-    None,
-    )
-    return {**weapon_entry, **{k: v for k, v in database_entry.items() if v is not None}} if database_entry else weapon_entry
+def match_key(name: object) -> str:
+    # OCR drops or adds spaces and punctuation ("ERSmall Laser", "SRM6"), so match on letters and digits only.
+    return re.sub(r"[^a-z0-9]", "", str(name).lower())
 
 
-def parse_weapon_rows(rows: list[str], lookup_extended: bool = False) -> list[dict[str, object | None]]:
+# Mech techBase enum (1 = Inner Sphere, 2 = Clan) to the weapon database's techBase (0 = Inner Sphere, 1 = Clan).
+MECH_TO_WEAPON_TECH_BASE = {1: 0, 2: 1}
+
+
+def grab_weapon_extended_data(weapon_entry: dict[str, object | None], mech_tech_base: int = 0) -> dict[str, object | None]:
+    key = match_key(weapon_entry.get("type", ""))
+    matches = [entry for entry in weapons_database if match_key(entry.get("type", "")) == key]
+    if not matches:
+        return weapon_entry
+    # Most weapons exist in both tech bases with different stats, so prefer the mech's own.
+    preferred_tech = MECH_TO_WEAPON_TECH_BASE.get(mech_tech_base)
+    database_entry = next((entry for entry in matches if entry.get("techBase") == preferred_tech), matches[0])
+    # The database values, including the weapon name, win over the OCR text.
+    return {**weapon_entry, **{k: v for k, v in database_entry.items() if v is not None}}
+
+
+def parse_weapon_rows(rows: list[str], lookup_extended: bool = False, mech_tech_base: int = 0) -> list[dict[str, object | None]]:
     if not rows:
         return []
 
@@ -142,15 +153,16 @@ def parse_weapon_rows(rows: list[str], lookup_extended: bool = False) -> list[di
             row = row[:-2].strip()
         tokens = row.split(" ")
         if tokens:
-            # If the first token is a number, treat it as the quantity.
-            if tokens[0].isdigit():
-                item["quantity"] = parse_number(tokens[0], integer=True) or 1
+            # If the first token is a number, treat it as the quantity. OCR sometimes adds punctuation, e.g. "1.".
+            quantity_match = re.fullmatch(r"(\d+)\W*", tokens[0])
+            if quantity_match:
+                item["quantity"] = parse_number(quantity_match.group(1), integer=True) or 1
                 tokens = tokens[1:]
             item["type"] = " ".join(tokens).strip()
         
         if item["type"]:
             if lookup_extended:
-                item = grab_weapon_extended_data(item)
+                item = grab_weapon_extended_data(item, mech_tech_base)
             parsed.append(item)
     return parsed
 
@@ -165,12 +177,10 @@ def parse_crit_table(crit_text_sections: dict[str, str]) -> dict[str, object | N
 
 def parse_ammo_list(ammo_text: str) -> dict[str, int | None]:
     ammo_list: dict[str, int | None] = {}
-    lines = ammo_text.split("BV:")[0].split(",")
-    for line in lines:
-        normalize_text(line)
-        ammo_type = line[line.find("(")+1:line.find(")")]
-        quantity = parse_number(normalize_text(line.split(")")[1]), integer=True)
-        ammo_list[ammo_type] = quantity
+    # Entries look like "(LRM 10) 12". OCR sometimes reads the brackets as [ or {,
+    # and picks up stray characters after the last count, so match each entry directly.
+    for match in re.finditer(r"[(\[{]\s*([^)\]}]+?)\s*[)\]}]\s*(\d[\d,]*)", ammo_text.split("BV")[0]):
+        ammo_list[normalize_text(match.group(1))] = parse_number(match.group(2), integer=True)
     return ammo_list
 
 def parse_armor_data(armor_data: dict[str, int], type: str) -> dict[str, int]:
@@ -208,10 +218,11 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
                     pass
         return default
 
-    name = find([
-        r"Variant\s*[:\-]\s*(.+?)(?:\n|$)",
+    nameAndModel = find([
         r"Type\s*[:\-]\s*(.+?)(?:\n|$)",
     ], block="base_data")
+    name = nameAndModel.rsplit(" ", 1)[0] if " " in nameAndModel else nameAndModel
+    model = nameAndModel.rsplit(" ", 1)[1] if " " in nameAndModel else ""
     manufacturer = find([
         r"Manufacturer\s*[:\-]\s*(.+?)(?:\n|$)",
     ], block="base_data")
@@ -220,24 +231,25 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
         r"Tonnage\s*[:\-]\s*(\d+(?:\.\d+)?)",
     ], block="base_data")
     tonnage = parse_number(tonnage_text, integer=False) or 0.0
-    tech_base = parse_enum(find([r"Tech\s*Base\s*[:\-]\s*([^\s]+)"], block="base_data"), TECH_BASE_MAP, default=4)
+    tech_base = parse_enum(find([r"Tech\s*Base\s*[:\-]\s*(.+?)(?:\n|$)"], block="base_data"), TECH_BASE_MAP, default=0)
 
     walk = parse_number(find([r"Walking\s*[:\-]?\s*(\d+)"], block="base_data")) or 0
     run = parse_number(find([r"Running\s*[:\-]?\s*(\d+)"], block="base_data")) or 0
     jump = parse_number(find([r"Jumping\s*[:\-]?\s*(\d+)"], block="base_data")) or 0
     battle_value = parse_number(find([r"Battle\s*Value\s*[:\-]?\s*(?=.)(\d{1,3}(,\d{3})*)?(\.\d+)?\b", r"BV\s*[:\-]?\s*(?=.)(\d{1,3}(,\d{3})*)?(\.\d+)?\b"], block="ammo_and_bv")) or 0
+    role = parse_enum(find([r"Role\s*[:\-]\s*(.+?)(?:\n|$)"], block="base_data"), ROLE_MAP, default=0)
 
     crit_text_sections = dict(filter(lambda item: item[0].startswith("crit_"), joined_mech_data.items()))
     crit_table = parse_crit_table(crit_text_sections)
+    engineType = crit_table.get("crit_center_torso", [])[0] if crit_table.get("crit_center_torso") else ""
     ammo = parse_ammo_list(joined_mech_data.get("ammo_and_bv", ""))
 
     era_text = find([r"Era\s*[:\-]\s*(\d{4})", r"(30\d{2})\b"], block="base_data")
     era = parse_number(era_text) or 0
-    movement_type = parse_enum(find([r"Movement\s*Type\s*[:\-]\s*(.+?)\n"], block="base_data"), MOVEMENT_TYPE_MAP, default=0)
 
     # Attempt to parse weapons and equipment tables.
     weapons: list[dict[str, object | None]] = []
-    weapons = parse_weapon_rows(rows=joined_mech_data.get("weapons_table", "").splitlines(), lookup_extended=weapon_lookup)
+    weapons = parse_weapon_rows(rows=joined_mech_data.get("weapons_table", "").splitlines(), lookup_extended=weapon_lookup, mech_tech_base=tech_base)
 
     armor_by_location: dict[str, int] = {}
     structure_by_location: dict[str, int] = {}
@@ -245,18 +257,20 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     structure_by_location, structure_total = parse_armor_data(dict(filter(lambda item: item[0].startswith("struct_"), joined_mech_data.items())), "struct_")
     heat_sink_type_and_number = parse_heat_sink_data(joined_mech_data.get("heat_sinks", ""))
 
-    mech_id = slugify(f"{name}")
+    mech_id = slugify(f"{name} {model}") if name and model else None
     if not mech_id:
         mech_id = slugify(name or "mech")
 
     return {
         "id": mech_id,
         "name": name,
+        "model": model,
         "manufacturer": manufacturer,
         "techBase": tech_base,
         "tonnage": tonnage,
         "era": era,
-        "movementType": movement_type,
+        "role": role,
+        "engineType": engineType,
         "walk": walk,
         "run": run,
         "jump": jump,
@@ -346,6 +360,10 @@ def main() -> int:
         file = open(json_data_file, 'r', encoding='utf-8')
         weapons_database = json.load(file)
         file.close()
+        # Weapon tonnage is stored as text in the database; the Dart model expects a number.
+        for entry in weapons_database:
+            if isinstance(entry.get("tons"), str):
+                entry["tons"] = parse_number(entry["tons"], integer=False)
     except OSError:
         print(f"Unable to open file {file}, skipping")
 
