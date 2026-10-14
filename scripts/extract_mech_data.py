@@ -20,11 +20,12 @@ from ast import Tuple
 import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from PIL import Image
 
 try:
-    from pdf2image import convert_from_path
+    from pdf2image import convert_from_path, pdfinfo_from_path
 except ImportError as exc:
     raise SystemExit(
         "Missing Python dependency pdf2image. Install it with: pip install pdf2image"
@@ -38,7 +39,7 @@ except ImportError as exc:
     ) from exc
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageDraw
 except ImportError as exc:
     raise SystemExit(
         "Missing Python dependency pillow. Install it with: pip install pillow"
@@ -65,7 +66,16 @@ ROLE_MAP = {
 }
 
 # Global data and variables
-factor = 3 # Scale factor for coordinates based on PDF DPI (default 300 DPI)
+# All ROI coordinates below are in pixels of the "waveone" layout rendered at 300 DPI (2725x3475 page).
+# They are mapped onto each page via the detected sheet bounds, so they work at any DPI and for sheets with different margins.
+DEFAULT_DPI = 900
+REFERENCE_DPI = 300
+# Bounds of the printed sheet (ink only, crop marks excluded) on a waveone page at 300 DPI: left, top, right, bottom.
+REFERENCE_CONTENT_BOX = (247, 189, 2473, 3208)
+# A row/column counts as sheet content when at least this fraction of it is dark. Crop marks fall below it.
+CONTENT_INK_FRACTION = 0.05
+# Auto-detection warns when the sheet size is further than this from every known layout.
+LAYOUT_MATCH_TOLERANCE = 0.03
 json_data_file = Path("/home/chief/StudioProjects/battletech_combat_helper_v2/scripts/battletech_weapons.json")
 weapons_database: list[dict[str, object | None]] = []
 
@@ -223,9 +233,6 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     ], block="base_data")
     name = nameAndModel.rsplit(" ", 1)[0] if " " in nameAndModel else nameAndModel
     model = nameAndModel.rsplit(" ", 1)[1] if " " in nameAndModel else ""
-    manufacturer = find([
-        r"Manufacturer\s*[:\-]\s*(.+?)(?:\n|$)",
-    ], block="base_data")
     tonnage_text = find([
         r"(\d+(?:\.\d+)?)\s*tons?",
         r"Tonnage\s*[:\-]\s*(\d+(?:\.\d+)?)",
@@ -265,7 +272,6 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
         "id": mech_id,
         "name": name,
         "model": model,
-        "manufacturer": manufacturer,
         "techBase": tech_base,
         "tonnage": tonnage,
         "era": era,
@@ -291,60 +297,207 @@ def ocr_page(image: Image.Image, config: str) -> str:
     return pytesseract.image_to_string(image, lang="eng", config=config)
 
 
-def convert_pdf_to_images(pdf_path: Path, dpi: int = 300) -> list[Image.Image]:
-    return convert_from_path(str(pdf_path), dpi=dpi)
+def convert_pdf_page_to_image(pdf_path: Path, page: int, dpi: int, grayscale: bool) -> Image.Image:
+    # Rendering a single page at a time keeps memory use flat. A page at 900 DPI is hundreds of MB.
+    return convert_from_path(str(pdf_path), dpi=dpi, first_page=page, last_page=page, grayscale=grayscale)[0]
+
+
+def write_mechs(output_json: Path, mechs: list[dict[str, object | None]]) -> None:
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    with output_json.open("w", encoding="utf-8") as fp:
+        json.dump(mechs, fp, indent=2, ensure_ascii=False)
 
 
 def add_supt_box_to_data_boxes(data_boxes: dict[str, tuple[int, int, int, int]], name: str, supt_box: tuple[int, int]) -> None:
-    data_boxes[name] = [supt_box[0], supt_box[1], supt_box[0] + factor * 60, supt_box[1] + factor * 40]
+    data_boxes[name] = [supt_box[0], supt_box[1], supt_box[0] + 60, supt_box[1] + 40]
 
-def main() -> int:
+Box = tuple[float, float, float, float]
+
+
+def find_content_box(image: Image.Image, dpi: int) -> Box | None:
+    """Bounds of the printed sheet on the page, in pixels. Margins and corner crop marks are ignored."""
+    # Detection doesn't need full resolution, so work on a ~300 DPI copy and scale the result back up.
+    reduction = max(1, dpi // REFERENCE_DPI)
+    dark = image.convert("L").reduce(reduction).point(lambda value: 255 if value < 128 else 0)
+    width, height = dark.size
+    column_ink = list(dark.resize((width, 1), Image.BOX).tobytes())
+    row_ink = list(dark.resize((1, height), Image.BOX).tobytes())
+    threshold = 255 * CONTENT_INK_FRACTION
+    columns = [i for i, ink in enumerate(column_ink) if ink >= threshold]
+    rows = [i for i, ink in enumerate(row_ink) if ink >= threshold]
+    if not columns or not rows:
+        return None
+    return (columns[0] * reduction, rows[0] * reduction, (columns[-1] + 1) * reduction, (rows[-1] + 1) * reduction)
+
+
+def stretch_boxes(boxes: dict[str, Box], ref_content_box: Box, content_box: Box) -> dict[str, tuple[int, int, int, int]]:
+    """Map boxes from a reference sheet's coordinates onto a page by stretching the reference sheet bounds to the detected ones."""
+    ref_left, ref_top, ref_right, ref_bottom = ref_content_box
+    left, top, right, bottom = content_box
+    scale_x = (right - left) / (ref_right - ref_left)
+    scale_y = (bottom - top) / (ref_bottom - ref_top)
+    return {
+        name: (
+            round(left + (x0 - ref_left) * scale_x),
+            round(top + (y0 - ref_top) * scale_y),
+            round(left + (x1 - ref_left) * scale_x),
+            round(top + (y1 - ref_top) * scale_y),
+        )
+        for name, (x0, y0, x1, y1) in boxes.items()
+    }
+
+
+def map_boxes_to_page(layouts: list[Layout], layout: Layout, content_box: Box | None, dpi: int) -> dict[str, tuple[int, int, int, int]]:
+    """The boxes for a page: the first layout's boxes, overridden by any the page's own layout defines."""
+    if content_box is None:
+        # Nothing detected (blank page?): assume the layout's reference sheet, scaled to the DPI.
+        content_box = tuple(value * dpi / REFERENCE_DPI for value in layout.content_box)
+    page_boxes = stretch_boxes(layouts[0].boxes, layouts[0].content_box, content_box)
+    if layout is not layouts[0]:
+        page_boxes.update(stretch_boxes(layout.boxes, layout.content_box, content_box))
+    return page_boxes
+
+
+def save_roi_overlay(image: Image.Image, page_boxes: dict[str, tuple[int, int, int, int]], content_box: Box | None, out_path: Path) -> None:
+    # Draw on a reduced copy; a full-size 900 DPI page is huge.
+    reduction = max(1, min(image.size) // 1000)
+    overlay = image.convert("RGB").reduce(reduction)
+    draw = ImageDraw.Draw(overlay)
+    if content_box is not None:
+        draw.rectangle([value / reduction for value in content_box], outline="blue", width=3)
+    for name, box in page_boxes.items():
+        draw.rectangle([value / reduction for value in box], outline="red", width=1)
+        draw.text((box[0] / reduction + 2, box[1] / reduction + 2), name, fill="red")
+    overlay.save(out_path)
+
+
+def build_waveone_boxes() -> dict[str, Box]:
     # This felt dumb to do overall, but the text in the PDF as a whole is structureed in such a way that
     # you need to be very targeted in how it gets extracted. Otherwise it comes out as a confusing mess.
     data_boxes = {
-        "base_data": (factor * 260, factor * 555, factor * 1095, factor * 760),
-        "weapons_table": (factor * 260, factor * 865, factor * 635, factor * 1390),
-        "ammo_and_bv": (factor * 260, factor * 1410, factor * 1095, factor * 1560),
-        "crit_left_arm": (factor * 380, factor * 1750, factor * 730, factor * 2200),
-        "crit_left_torso": (factor * 380, factor * 2320, factor * 730, factor * 2760),
-        "crit_left_leg": (factor * 380, factor * 2890, factor * 730, factor * 3100),
-        "crit_right_side": (factor * 1350, factor * 1750, factor * 1700, factor * 2200),
-        "crit_right_torso": (factor * 1350, factor * 2320, factor * 1700, factor * 2760),
-        "crit_right_leg": (factor * 1350, factor * 2890, factor * 1700, factor * 3100),
-        "crit_head": (factor * 865, factor * 1720, factor * 1100, factor * 1950),
-        "crit_center_torso": (factor * 865, factor * 2000, factor * 1100, factor * 2450),
-        "heat_sinks": (factor * 2190, factor * 2530, factor * 2340, factor * 2580),
-        "mech_image": (factor * 1130, factor * 838, factor * 1740, factor * 1640),
+        "base_data": (260, 555, 1095, 760),
+        "weapons_table": (260, 865, 635, 1390),
+        "ammo_and_bv": (260, 1410, 1095, 1560),
+        "crit_left_arm": (380, 1750, 730, 2200),
+        "crit_left_torso": (380, 2320, 730, 2760),
+        "crit_left_leg": (380, 2890, 730, 3100),
+        "crit_right_side": (1350, 1750, 1700, 2200),
+        "crit_right_torso": (1350, 2320, 1700, 2760),
+        "crit_right_leg": (1350, 2890, 1700, 3100),
+        "crit_head": (865, 1720, 1100, 1950),
+        "crit_center_torso": (865, 2000, 1100, 2450),
+        "heat_sinks": (2190, 2530, 2340, 2580),
+        "mech_image": (1130, 838, 1740, 1640),
     }
     # The armor and structure data was the worst to extract in any sort of larger sub-image,
     # so I just made a bunch of small sub-images for each armor/structure value location.
     # The name for each value wasn't really necessary since I'm explicitly targeting the individual values themselves.
     # This was super tedious but it ended up being the only way to get the data out reliably.
-    add_supt_box_to_data_boxes(data_boxes, "armor_left_torso", (factor * 1930, factor * 310))
-    add_supt_box_to_data_boxes(data_boxes, "armor_right_torso", (factor * 2200, factor * 311))
-    add_supt_box_to_data_boxes(data_boxes, "armor_left_arm", (factor * 1779, factor * 955))
-    add_supt_box_to_data_boxes(data_boxes, "armor_right_arm", (factor * 2386, factor * 956))
-    add_supt_box_to_data_boxes(data_boxes, "armor_left_leg", (factor * 1745, factor * 1179))
-    add_supt_box_to_data_boxes(data_boxes, "armor_right_leg", (factor * 2411, factor * 1179))
-    add_supt_box_to_data_boxes(data_boxes, "armor_head", (factor * 2112, factor * 256))
-    add_supt_box_to_data_boxes(data_boxes, "armor_center_torso", (factor * 2079, factor * 965))
-    add_supt_box_to_data_boxes(data_boxes, "armor_rear_left_torso", (factor * 1789, factor * 1563))
-    add_supt_box_to_data_boxes(data_boxes, "armor_rear_right_torso", (factor * 2368, factor * 1563))
-    add_supt_box_to_data_boxes(data_boxes, "armor_rear_center_torso", (factor * 2079, factor * 1209))
+    add_supt_box_to_data_boxes(data_boxes, "armor_left_torso", (1930, 310))
+    add_supt_box_to_data_boxes(data_boxes, "armor_right_torso", (2200, 311))
+    add_supt_box_to_data_boxes(data_boxes, "armor_left_arm", (1779, 955))
+    add_supt_box_to_data_boxes(data_boxes, "armor_right_arm", (2386, 956))
+    add_supt_box_to_data_boxes(data_boxes, "armor_left_leg", (1745, 1179))
+    add_supt_box_to_data_boxes(data_boxes, "armor_right_leg", (2411, 1179))
+    add_supt_box_to_data_boxes(data_boxes, "armor_head", (2112, 256))
+    add_supt_box_to_data_boxes(data_boxes, "armor_center_torso", (2079, 965))
+    add_supt_box_to_data_boxes(data_boxes, "armor_rear_left_torso", (1789, 1563))
+    add_supt_box_to_data_boxes(data_boxes, "armor_rear_right_torso", (2368, 1563))
+    add_supt_box_to_data_boxes(data_boxes, "armor_rear_center_torso", (2079, 1209))
 
-    add_supt_box_to_data_boxes(data_boxes, "struct_left_torso", (factor * 1881, factor * 1732))
-    add_supt_box_to_data_boxes(data_boxes, "struct_right_torso", (factor * 2300, factor * 1732))
-    add_supt_box_to_data_boxes(data_boxes, "struct_left_arm", (factor * 1738, factor * 2052))
-    add_supt_box_to_data_boxes(data_boxes, "struct_right_arm", (factor * 2317, factor * 2052))
-    add_supt_box_to_data_boxes(data_boxes, "struct_left_leg", (factor * 1799, factor * 2293))
-    add_supt_box_to_data_boxes(data_boxes, "struct_right_leg", (factor * 2268, factor * 2294))
-    add_supt_box_to_data_boxes(data_boxes, "struct_center_torso", (factor * 2028, factor * 2174))
+    add_supt_box_to_data_boxes(data_boxes, "struct_left_torso", (1881, 1732))
+    add_supt_box_to_data_boxes(data_boxes, "struct_right_torso", (2300, 1732))
+    add_supt_box_to_data_boxes(data_boxes, "struct_left_arm", (1738, 2052))
+    add_supt_box_to_data_boxes(data_boxes, "struct_right_arm", (2317, 2052))
+    add_supt_box_to_data_boxes(data_boxes, "struct_left_leg", (1799, 2293))
+    add_supt_box_to_data_boxes(data_boxes, "struct_right_leg", (2268, 2294))
+    add_supt_box_to_data_boxes(data_boxes, "struct_center_torso", (2028, 2174))
+    return data_boxes
 
+
+# The wave two sheets are a different layout: their sheet is bigger and a few elements sit differently inside it,
+# so a stretch of the wave one boxes misses these. Coordinates are pixels of a wave two page at 300 DPI (2550x3300).
+# Boxes not listed here fall back to the stretched wave one boxes.
+# This was very frustrating. Way more annoyingly complicated than I originally thought it would have been.
+def build_wavetwo_boxes() -> dict[str, Box]:
+    data_boxes: dict[str, Box] = {
+        "base_data": (85, 440, 1000, 655),
+        "weapons_table": (90, 746, 490, 1320),
+        "ammo_and_bv": (90, 1425, 1000, 1585),
+        "crit_left_arm": (212, 1778, 560, 2202),
+        "crit_right_side": (1170, 1778, 1520, 2202),
+        "crit_left_torso": (212, 2330, 560, 2760),
+        "crit_right_torso": (1170, 2330, 1520, 2760),
+        "crit_left_leg": (212, 2888, 560, 3100),
+        "crit_right_leg": (1170, 2888, 1520, 3100),
+        "crit_head": (690, 1730, 880, 1940),
+        "crit_center_torso": (690, 2044, 880, 2470),
+        "heat_sinks": (2180, 2475, 2335, 2535),
+    }
+    add_supt_box_to_data_boxes(data_boxes, "armor_left_torso", (1884, 201))
+    add_supt_box_to_data_boxes(data_boxes, "armor_right_torso", (2163, 201))
+    add_supt_box_to_data_boxes(data_boxes, "armor_left_arm", (1729, 862))
+    add_supt_box_to_data_boxes(data_boxes, "armor_right_arm", (2352, 862))
+    add_supt_box_to_data_boxes(data_boxes, "armor_left_leg", (1695, 1086))
+    add_supt_box_to_data_boxes(data_boxes, "armor_right_leg", (2379, 1086))
+    add_supt_box_to_data_boxes(data_boxes, "armor_head", (2069, 143))
+    add_supt_box_to_data_boxes(data_boxes, "armor_center_torso", (2038, 871))
+    add_supt_box_to_data_boxes(data_boxes, "armor_rear_left_torso", (1740, 1485))
+    add_supt_box_to_data_boxes(data_boxes, "armor_rear_right_torso", (2335, 1485))
+    add_supt_box_to_data_boxes(data_boxes, "armor_rear_center_torso", (2038, 1121))
+
+    add_supt_box_to_data_boxes(data_boxes, "struct_left_torso", (1853, 1693))
+    add_supt_box_to_data_boxes(data_boxes, "struct_right_torso", (2273, 1693))
+    add_supt_box_to_data_boxes(data_boxes, "struct_left_arm", (1712, 2014))
+    add_supt_box_to_data_boxes(data_boxes, "struct_right_arm", (2294, 2014))
+    add_supt_box_to_data_boxes(data_boxes, "struct_left_leg", (1773, 2257))
+    add_supt_box_to_data_boxes(data_boxes, "struct_right_leg", (2245, 2257))
+    add_supt_box_to_data_boxes(data_boxes, "struct_center_torso", (2005, 2137))
+    return data_boxes
+
+
+@dataclass(frozen=True)
+class Layout:
+    name: str
+    content_box: Box  # Sheet bounds on a page of this layout at 300 DPI, as find_content_box reports them.
+    boxes: dict[str, Box]
+
+
+def build_layouts() -> list[Layout]:
+    waveone = Layout("waveone", REFERENCE_CONTENT_BOX, build_waveone_boxes())
+    wavetwo = Layout("wavetwo", (71, 75, 2465, 3225), build_wavetwo_boxes())
+    return [waveone, wavetwo]
+
+
+def pick_layout(layouts: list[Layout], content_box: Box | None, dpi: int) -> tuple[Layout, float]:
+    """The layout whose sheet size is closest to the detected one, and how far off it is (0.05 = 5%)."""
+    if content_box is None:
+        return layouts[0], 0.0
+    scale = REFERENCE_DPI / dpi
+    width = (content_box[2] - content_box[0]) * scale
+    height = (content_box[3] - content_box[1]) * scale
+
+    def distance(layout: Layout) -> float:
+        ref_width = layout.content_box[2] - layout.content_box[0]
+        ref_height = layout.content_box[3] - layout.content_box[1]
+        return max(abs(width - ref_width) / ref_width, abs(height - ref_height) / ref_height)
+
+    best = min(layouts, key=distance)
+    return best, distance(best)
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(description="Extract Battletech mech data from a PDF into JSON")
-    parser.add_argument("--input_pdf", type=Path, default=Path("/home/chief/StudioProjects/battletech_combat_helper_v2/scripts/test.pdf"), help="Path to the input Battletech mech PDF")
+    parser.add_argument("--input_pdf", type=Path, default=Path("/home/chief/Downloads/ForcePackRecordsWaveTwoMechsOnly.pdf"), help="Path to the input Battletech mech PDF")
     parser.add_argument("--output_json", type=Path, default=Path("/home/chief/StudioProjects/battletech_combat_helper_v2/scripts/mechs.json"), help="Path to write the output JSON file")
-    parser.add_argument("--dpi", type=int, default=factor * 300, help="DPI for PDF-to-image conversion")
+    parser.add_argument("--dpi", type=int, default=DEFAULT_DPI, help="DPI for PDF-to-image conversion")
     parser.add_argument("--save-images", action="store_true", default=False, help="Save page images for debugging")
+    parser.add_argument("--layout", default="auto", help="Sheet layout to use: auto (detect from the sheet size), waveone or wavetwo")
+    parser.add_argument("--start-page", type=int, default=1, help="First PDF page to process (1-based)")
+    parser.add_argument("--end-page", type=int, default=None, help="Last PDF page to process (default: last page)")
+    parser.add_argument("--append", action="store_true", default=True, help="Merge into the existing output JSON instead of overwriting it. Mechs with a matching id are replaced.")
+    parser.add_argument("--save-every", type=int, default=10, help="Write the output JSON after this many pages, so a crash doesn't lose everything")
+    parser.add_argument("--color", action="store_true", default=False, help="Render pages in color instead of grayscale (grayscale uses less memory)")
     try:
         args = parser.parse_args()
     except SystemExit:
@@ -367,18 +520,55 @@ def main() -> int:
     except OSError:
         print(f"Unable to open file {file}, skipping")
 
-    pages = convert_pdf_to_images(args.input_pdf, dpi=args.dpi)
-    mechs: list[dict[str, object | None]] = []
+    layouts = build_layouts()
+    layouts_by_name = {layout.name: layout for layout in layouts}
+    if args.layout != "auto" and args.layout not in layouts_by_name:
+        print(f"Error: unknown layout {args.layout!r}, expected auto or one of {', '.join(layouts_by_name)}", file=sys.stderr)
+        return 1
 
-    for index, image in enumerate(pages, start=1):
+    total_pages = int(pdfinfo_from_path(str(args.input_pdf))["Pages"])
+    start_page = max(args.start_page, 1)
+    end_page = min(args.end_page or total_pages, total_pages)
+    if start_page > end_page:
+        print(f"Error: page range {start_page}-{end_page} is empty (PDF has {total_pages} pages)", file=sys.stderr)
+        return 1
+
+    mechs: list[dict[str, object | None]] = []
+    if args.append and args.output_json.exists():
+        with args.output_json.open("r", encoding="utf-8") as fp:
+            mechs = json.load(fp)
+        print(f"Loaded {len(mechs)} existing mechs from {args.output_json}")
+    mech_index_by_id = {existing.get("id"): i for i, existing in enumerate(mechs)}
+
+    (args.output_json.parent / "thumbnails").mkdir(parents=True, exist_ok=True)
+    pages_since_save = 0
+
+    for index in range(start_page, end_page + 1):
+        image = convert_pdf_page_to_image(args.input_pdf, index, args.dpi, grayscale=not args.color)
         if args.save_images:
             out_image = args.output_json.parent / f"page_{index:03d}.png"
             image.save(out_image)
             print(f"Saved page image: {out_image}")
 
+        content_box = find_content_box(image, args.dpi)
+        if content_box is None:
+            print(f"Warning: no sheet content detected on page {index}, using the reference layout", file=sys.stderr)
+        if args.layout == "auto":
+            layout, mismatch = pick_layout(layouts, content_box, args.dpi)
+            if mismatch > LAYOUT_MATCH_TOLERANCE:
+                print(f"Warning: page {index} sheet size is {mismatch:.0%} off the closest layout ({layout.name}); ROIs may be misaligned", file=sys.stderr)
+        else:
+            layout = layouts_by_name[args.layout]
+        print(f"Page {index} layout: {layout.name}")
+        page_boxes = map_boxes_to_page(layouts, layout, content_box, args.dpi)
+        if args.save_images:
+            out_overlay = args.output_json.parent / f"page_{index:03d}_overlay.png"
+            save_roi_overlay(image, page_boxes, content_box, out_overlay)
+            print(f"Saved ROI overlay: {out_overlay}")
+
         mech_data: dict[str, str] = {}
         mech_thumbnail: Image.Image = None
-        for box_name, box_coords in data_boxes.items():
+        for box_name, box_coords in page_boxes.items():
             cropped_image = image.crop(box_coords)
             if args.save_images:
                 out_cropped = args.output_json.parent / f"page_{index:03d}_{box_name}.png"
@@ -392,16 +582,23 @@ def main() -> int:
                 mech_thumbnail = cropped_image
 
         mech = parse_mech_text(mech_data)
-        mechs.append(mech)
+        if mech["id"] in mech_index_by_id:
+            mechs[mech_index_by_id[mech["id"]]] = mech
+        else:
+            mech_index_by_id[mech["id"]] = len(mechs)
+            mechs.append(mech)
         if mech_thumbnail:
             thumbnail_save = args.output_json.parent / f"thumbnails/{mech['id'] or f'mech_{index}'}.png"
             mech_thumbnail.save(thumbnail_save)
-        print(f"Parsed page {index}: {mech['id'] or 'unknown'}")
+        print(f"Parsed page {index}/{end_page}: {mech['id'] or 'unknown'}")
 
-    args.output_json.parent.mkdir(parents=True, exist_ok=True)
-    with args.output_json.open("w", encoding="utf-8") as fp:
-        json.dump(mechs, fp, indent=2, ensure_ascii=False)
+        del image, mech_thumbnail
+        pages_since_save += 1
+        if args.save_every > 0 and pages_since_save >= args.save_every:
+            write_mechs(args.output_json, mechs)
+            pages_since_save = 0
 
+    write_mechs(args.output_json, mechs)
     print(f"Wrote {len(mechs)} mechs to {args.output_json}")
     return 0
 

@@ -11,7 +11,6 @@ const fullMech = Mech(
   id: 'hbk-4g',
   name: 'Hunchback',
   model: 'HBK-4G',
-  manufacturer: 'Komiyaba Type VII',
   techBase: TechBase.innerSphere,
   tonnage: 50,
   era: 3025,
@@ -359,7 +358,6 @@ void main() {
 
       test('fills defaults for a sparse record', () {
         final atlas = mechs.last;
-        expect(atlas.manufacturer, '');
         expect(atlas.jump, 0);
         expect(atlas.weightClass, WeightClass.assault);
         expect(atlas.weapons.single.quantity, 1);

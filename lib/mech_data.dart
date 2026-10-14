@@ -21,7 +21,6 @@ class Mech {
   final String id;
   final String name;
   final String model;
-  final String manufacturer;
   final TechBase techBase;
   final double tonnage;
   final int era; // e.g. 3025, 3075
@@ -59,7 +58,6 @@ class Mech {
     required this.id,
     required this.name,
     this.model = '',
-    this.manufacturer = '',
     this.techBase = TechBase.unknown,
     required this.tonnage,
     this.era = 0,
@@ -114,7 +112,6 @@ class Mech {
       id: id ?? this.id,
       name: name ?? this.name,
       model: model ?? this.model,
-      manufacturer: manufacturer ?? this.manufacturer,
       techBase: techBase ?? this.techBase,
       tonnage: tonnage ?? this.tonnage,
       era: era ?? this.era,
@@ -179,7 +176,6 @@ class Mech {
         'id': id,
         'name': name,
         'model': model,
-        'manufacturer': manufacturer,
         'techBase': techBase.index,
         'tonnage': tonnage,
         'era': era,
@@ -208,7 +204,6 @@ class Mech {
         id: json['id'] as String,
         name: json['name'] as String,
         model: json['model'] as String? ?? '',
-        manufacturer: json['manufacturer'] as String? ?? '',
         techBase: _enumFromIndex(TechBase.values, json['techBase'], TechBase.unknown),
         tonnage: (json['tonnage'] as num).toDouble(),
         era: json['era'] as int? ?? 0,
