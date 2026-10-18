@@ -19,11 +19,11 @@ import sys
 from pathlib import Path
 
 TECH_BASE_MAP = {
-    "inner sphere": 0,
-    "clan": 1,
-    "mixed": 2,
-    "pirate": 3,
-    "unknown": 4,
+    "unknown": 0,
+    "inner sphere": 1,
+    "clan": 2,
+    "mixed": 3,
+    "pirate": 4,
 }
 
 TYPE_MAP = {

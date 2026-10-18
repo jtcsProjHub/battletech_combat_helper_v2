@@ -121,18 +121,13 @@ def match_key(name: object) -> str:
     return re.sub(r"[^a-z0-9]", "", str(name).lower())
 
 
-# Mech techBase enum (1 = Inner Sphere, 2 = Clan) to the weapon database's techBase (0 = Inner Sphere, 1 = Clan).
-MECH_TO_WEAPON_TECH_BASE = {1: 0, 2: 1}
-
-
 def grab_weapon_extended_data(weapon_entry: dict[str, object | None], mech_tech_base: int = 0) -> dict[str, object | None]:
     key = match_key(weapon_entry.get("type", ""))
     matches = [entry for entry in weapons_database if match_key(entry.get("type", "")) == key]
     if not matches:
         return weapon_entry
     # Most weapons exist in both tech bases with different stats, so prefer the mech's own.
-    preferred_tech = MECH_TO_WEAPON_TECH_BASE.get(mech_tech_base)
-    database_entry = next((entry for entry in matches if entry.get("techBase") == preferred_tech), matches[0])
+    database_entry = next((entry for entry in matches if entry.get("techBase") == mech_tech_base), matches[0])
     # The database values, including the weapon name, win over the OCR text.
     return {**weapon_entry, **{k: v for k, v in database_entry.items() if v is not None}}
 
@@ -202,12 +197,18 @@ def parse_armor_data(armor_data: dict[str, int], type: str) -> dict[str, int]:
     return armor_by_location, sum(armor_by_location.values())
 
 def parse_heat_sink_data(heat_sinks: str) -> Tuple[int, int]:
+    """Returns (type, number of heat sinks). Double heat sinks are printed as '10 (20)': the number of sinks, then
+    the heat they dissipate, so the count is the number before the parenthesis."""
     if (heat_sinks.find("(") == -1 and heat_sinks.find(")") == -1):
         number_sinks = parse_number(heat_sinks, integer=True) or 0
         return (1, number_sinks)
     else:
-        number_sinks_text = "".join([ele for ele in heat_sinks.split("(", 1)[1] if ele.isdigit()])
-        number_sinks = parse_number(number_sinks_text, integer=True) or 0
+        number_sinks_text = "".join([ele for ele in heat_sinks.split("(", 1)[0] if ele.isdigit()])
+        number_sinks = parse_number(number_sinks_text, integer=True)
+        if not number_sinks:
+            # Nothing readable before the parenthesis; the dissipation inside it is twice the number of sinks.
+            dissipation_text = "".join([ele for ele in heat_sinks.split("(", 1)[1] if ele.isdigit()])
+            number_sinks = (parse_number(dissipation_text, integer=True) or 0) // 2
         return (2, number_sinks)
 
 def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
@@ -267,6 +268,7 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     mech_id = slugify(f"{name} {model}") if name and model else None
     if not mech_id:
         mech_id = slugify(name or "mech")
+    model = model or "Base"  # the Master Unit List calls a chassis's first variant "(Base)"; the id above stays name-only
 
     return {
         "id": mech_id,
