@@ -20,10 +20,12 @@ T _enumFromIndex<T extends Enum>(List<T> values, dynamic raw, T fallback) =>
 class Mech {
   final String id;
   final String name;
-  final String model;
+  final String variant;
+  final String mulSlug; // key of this variant in the Master Unit List data; the id keeps the datasheet naming
   final TechBase techBase;
   final double tonnage;
-  final int era; // e.g. 3025, 3075
+  final int introYear; // e.g. 3025, 3075
+  final String introEra; // e.g. 'Star League'
   final Role role;
   final String engineType; // optional engine type (e.g. "Fusion", "XL Fusion", etc.)
 
@@ -57,10 +59,12 @@ class Mech {
   const Mech({
     required this.id,
     required this.name,
-    this.model = '',
+    this.variant = '',
+    this.mulSlug = '',
     this.techBase = TechBase.unknown,
     required this.tonnage,
-    this.era = 0,
+    this.introYear = 0,
+    this.introEra = '',
     this.role = Role.unknown,
     this.engineType = '',
     this.walk = 0,
@@ -84,11 +88,13 @@ class Mech {
   Mech copyWith({
     String? id,
     String? name,
-    String? model,
+    String? variant,
+    String? mulSlug,
     String? manufacturer,
     TechBase? techBase,
     double? tonnage,
-    int? era,
+    int? introYear,
+    String? introEra,
     Role? role,
     String? engineType,
     int? walk,
@@ -111,10 +117,12 @@ class Mech {
     return Mech(
       id: id ?? this.id,
       name: name ?? this.name,
-      model: model ?? this.model,
+      variant: variant ?? this.variant,
+      mulSlug: mulSlug ?? this.mulSlug,
       techBase: techBase ?? this.techBase,
       tonnage: tonnage ?? this.tonnage,
-      era: era ?? this.era,
+      introYear: introYear ?? this.introYear,
+      introEra: introEra ?? this.introEra,
       role: role ?? this.role,
       engineType: engineType ?? this.engineType,
       walk: walk ?? this.walk,
@@ -175,10 +183,12 @@ class Mech {
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
-        'model': model,
+        'variant': variant,
+        'mulSlug': mulSlug,
         'techBase': techBase.index,
         'tonnage': tonnage,
-        'era': era,
+        'introYear': introYear,
+        'introEra': introEra,
         'weightClass': weightClass.index,
         'role': role.index,
         'engineType': engineType,
@@ -203,10 +213,12 @@ class Mech {
   factory Mech.fromJson(Map<String, dynamic> json) => Mech(
         id: json['id'] as String,
         name: json['name'] as String,
-        model: json['model'] as String? ?? '',
+        variant: json['variant'] as String? ?? '',
+        mulSlug: json['mulSlug'] as String? ?? '',
         techBase: _enumFromIndex(TechBase.values, json['techBase'], TechBase.unknown),
         tonnage: (json['tonnage'] as num).toDouble(),
-        era: json['era'] as int? ?? 0,
+        introYear: json['introYear'] as int? ?? 0,
+        introEra: json['introEra'] as String? ?? '',
         role: _enumFromIndex(Role.values, json['role'], Role.unknown),
         engineType: json['engineType'] as String? ?? '',
         walk: json['walk'] as int? ?? 0,

@@ -6,10 +6,13 @@ import difflib
 import json
 import re
 import sys
+from pathlib import Path
 
 from check_mech_data import NO_HEAT_EQUIPMENT, WEAPONS_DATABASE_FILE, load_weapons_database, loose
 
 AMMO_PREFIX = re.compile(r"ammo\b", re.IGNORECASE)
+# Values under these keys are left as they are: "name" is already clean, and the intro era comes from the MUL, not OCR.
+UNTOUCHED_KEYS = {"name", "introEra"}
 
 
 def strip_non_alnum(text, allowed_end=""):
@@ -37,11 +40,11 @@ def clean_value(text):
 def clean(node):
     """Recursively clean every key and string value in a nested JSON structure.
 
-    Values under a "name" key are left untouched (the key itself is still cleaned).
+    Values under an UNTOUCHED_KEYS key are left untouched (the key itself is still cleaned).
     """
     if isinstance(node, dict):
         return {
-            strip_non_alnum(k): v if k == "name" else clean(v)
+            strip_non_alnum(k): v if k in UNTOUCHED_KEYS else clean(v)
             for k, v in node.items()
         }
     if isinstance(node, list):
@@ -137,7 +140,7 @@ def fix_equipment_names(mechs: list[dict]) -> int:
 
 
 def main():
-    in_path = sys.argv[1] if len(sys.argv) > 1 else "mechs.json"
+    in_path = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).parent.parent / "assets" / "base_data" / "mechs_clean.json")
     out_path = sys.argv[2] if len(sys.argv) > 2 else in_path
 
     with open(in_path, "r", encoding="utf-8") as file:

@@ -76,7 +76,7 @@ REFERENCE_CONTENT_BOX = (247, 189, 2473, 3208)
 CONTENT_INK_FRACTION = 0.05
 # Auto-detection warns when the sheet size is further than this from every known layout.
 LAYOUT_MATCH_TOLERANCE = 0.03
-json_data_file = Path("/home/chief/StudioProjects/battletech_combat_helper_v2/scripts/battletech_weapons.json")
+json_data_file = Path("/home/chief/StudioProjects/battletech_combat_helper_v2/assets/base_data/battletech_weapons.json")
 weapons_database: list[dict[str, object | None]] = []
 
 def normalize_text(text: str) -> str:
@@ -229,11 +229,11 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
                     pass
         return default
 
-    nameAndModel = find([
+    nameAndVariant = find([
         r"Type\s*[:\-]\s*(.+?)(?:\n|$)",
     ], block="base_data")
-    name = nameAndModel.rsplit(" ", 1)[0] if " " in nameAndModel else nameAndModel
-    model = nameAndModel.rsplit(" ", 1)[1] if " " in nameAndModel else ""
+    name = nameAndVariant.rsplit(" ", 1)[0] if " " in nameAndVariant else nameAndVariant
+    variant = nameAndVariant.rsplit(" ", 1)[1] if " " in nameAndVariant else ""
     tonnage_text = find([
         r"(\d+(?:\.\d+)?)\s*tons?",
         r"Tonnage\s*[:\-]\s*(\d+(?:\.\d+)?)",
@@ -252,8 +252,8 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     engineType = crit_table.get("crit_center_torso", [])[0] if crit_table.get("crit_center_torso") else ""
     ammo = parse_ammo_list(joined_mech_data.get("ammo_and_bv", ""))
 
-    era_text = find([r"Era\s*[:\-]\s*(\d{4})", r"(30\d{2})\b"], block="base_data")
-    era = parse_number(era_text) or 0
+    intro_year_text = find([r"Era\s*[:\-]\s*(\d{4})", r"(30\d{2})\b"], block="base_data")
+    intro_year = parse_number(intro_year_text) or 0
 
     # Attempt to parse weapons and equipment tables.
     weapons: list[dict[str, object | None]] = []
@@ -265,18 +265,20 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     structure_by_location, structure_total = parse_armor_data(dict(filter(lambda item: item[0].startswith("struct_"), joined_mech_data.items())), "struct_")
     heat_sink_type_and_number = parse_heat_sink_data(joined_mech_data.get("heat_sinks", ""))
 
-    mech_id = slugify(f"{name} {model}") if name and model else None
+    mech_id = slugify(f"{name} {variant}") if name and variant else None
     if not mech_id:
         mech_id = slugify(name or "mech")
-    model = model or "Base"  # the Master Unit List calls a chassis's first variant "(Base)"; the id above stays name-only
+    variant = variant or "Base"  # the Master Unit List calls a chassis's first variant "(Base)"; the id above stays name-only
 
     return {
         "id": mech_id,
         "name": name,
-        "model": model,
+        "variant": variant,
+        "mulSlug": "",
         "techBase": tech_base,
         "tonnage": tonnage,
-        "era": era,
+        "introYear": intro_year,
+        "introEra": "",
         "role": role,
         "engineType": engineType,
         "walk": walk,

@@ -36,7 +36,7 @@ NO_HEAT_EQUIPMENT = {"activeprobe", "apod", "tag", "targetingcomputer", "antimis
 AMMO_WEAPON_ALIASES = {"ams": "antimissilesystem", "lb5x": "lb5xac", "lb2x": "lb2xac", "lb10x": "lb10xac", "gauss": "gaussrifle"}
 # Ammo for a weapon that can use Artemis or Narc, or LB-X cluster ammo, is listed with a suffix; it is still ammo for that weapon.
 AMMO_VARIANT_SUFFIX = re.compile(r"\s*(?:(?:narc|artemis)-capable|\s+cluster)$", re.IGNORECASE)
-WEAPONS_DATABASE_FILE = Path(__file__).parent / "battletech_weapons.json"
+WEAPONS_DATABASE_FILE = Path(__file__).parent.parent / "assets" / "base_data" / "battletech_weapons.json"
 weapons_database: list[dict[str, object | None]] = []
 
 
@@ -85,8 +85,8 @@ def check_mech(mech: dict) -> list[tuple[str, tuple[str, ...]]]:
     """Returns (message, path) pairs; path is a chain of search strings that locates the value in the file."""
     issues: list[tuple[str, tuple[str, ...]]] = []
 
-    if not mech.get("model"):
-        issues.append(("model is empty (id falls back to name only)", (key("model"),)))
+    if not mech.get("variant"):
+        issues.append(("variant is empty (id falls back to name only)", (key("variant"),)))
 
     tonnage = mech.get("tonnage")
     if not is_number(tonnage) or tonnage < 20 or tonnage > 100 or tonnage % 5:
@@ -240,7 +240,7 @@ def locate(lines: list[str], start: int, end: int, path: tuple[str, ...]) -> int
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Flag extracted mech records that need manual review")
-    parser.add_argument("mechs_json", type=Path, nargs="?", default=Path(__file__).parent / "mechs_clean.json")
+    parser.add_argument("mechs_json", type=Path, nargs="?", default=Path(__file__).parent.parent / "assets" / "base_data" / "mechs_clean.json")
     args = parser.parse_args()
 
     text = args.mechs_json.read_text(encoding="utf-8")
@@ -275,7 +275,7 @@ def main() -> int:
         if issues:
             flagged += 1
             start = f" [line {starts[index]}]" if starts else ""
-            print(f"{mech.get('id')} ({mech.get('name')} {mech.get('model')}){start}")
+            print(f"{mech.get('id')} ({mech.get('name')} {mech.get('variant')}){start}")
             for message, path in issues:
                 line = f"line {locate(lines, starts[index], ends[index], path)}: " if starts else ""
                 print(f"  - {line}{message}")

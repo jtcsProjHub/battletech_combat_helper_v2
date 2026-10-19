@@ -1,6 +1,6 @@
 # Runs the clean-up steps over the mech JSON repeatedly until a pass changes nothing, because each step can enable
-# the next one (fixing a model lets the MUL data match, which gives a valid tonnage, which lets walk/run be inferred).
-# Steps: json_cleanup.py (stray characters, weapon and ammo names), mul_lookup.py merge (tonnage, BV, era, role),
+# the next one (fixing a variant lets the MUL data match, which gives a valid tonnage, which lets walk/run be inferred).
+# Steps: json_cleanup.py (stray characters, weapon and ammo names), mul_lookup.py merge (tonnage, BV, intro year, role),
 # check_mech_data.py (weapon database fill, walk/run inference, and the report of what still needs a manual fix).
 # Usage: python refresh_mech_data.py [path/to/mechs.json] [--max-passes 5]
 
@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 SCRIPTS = Path(__file__).parent
+BASE_DATA = SCRIPTS.parent / "assets" / "base_data"
 
 
 def run(script: str, *args: str) -> str:
@@ -43,11 +44,11 @@ def digest(path: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Re-run the mech data clean-up steps until nothing changes")
-    parser.add_argument("mechs_json", type=Path, nargs="?", default=SCRIPTS / "mechs_clean.json")
+    parser.add_argument("mechs_json", type=Path, nargs="?", default=BASE_DATA / "mechs_clean.json")
     parser.add_argument("--max-passes", type=int, default=5)
     args = parser.parse_args()
     path = str(args.mechs_json)
-    use_mul = (SCRIPTS / "mul_cache.json").exists()
+    use_mul = (BASE_DATA / "mul_cache.json").exists()
     if not use_mul:
         print("mul_cache.json not found; skipping the MUL step (see mul_lookup.py parse)\n")
 

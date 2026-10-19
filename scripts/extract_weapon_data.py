@@ -143,7 +143,7 @@ def parse_weapon_rows(rows: list[str], tech: int = 0) -> list[dict[str, object |
 
 
 def main() -> int:
-    output_json = Path('/home/chief/StudioProjects/battletech_combat_helper_v2/scripts/battletech_weapons.json')
+    output_json = Path('/home/chief/StudioProjects/battletech_combat_helper_v2/assets/base_data/battletech_weapons.json')
     
     files_to_process = [
         '/home/chief/StudioProjects/battletech_combat_helper_v2/scripts/innersphereweapons.txt',
