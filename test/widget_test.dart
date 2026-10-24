@@ -1,30 +1,36 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:battletech_combat_helper_v2/main.dart';
+import 'package:battletech_combat_helper_v2/screens/lance_builder_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  Future<void> pumpApp(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(const MyApp());
+  }
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('Main menu shows the three options and Quit', (tester) async {
+    await pumpApp(tester);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // The first option shows in the menu and in the briefing panel.
+    expect(find.text('CREATE / EDIT LANCE PRECONS'), findsNWidgets(2));
+    expect(find.text('NEW SKIRMISH'), findsOneWidget);
+    expect(find.text('LOAD SKIRMISH'), findsOneWidget);
+    expect(find.text('QUIT'), findsOneWidget);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('Lance precon option opens the Lance Builder', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('CREATE / EDIT LANCE PRECONS').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(LanceBuilderScreen), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('SELECT OPERATION'), findsOneWidget);
   });
 }
