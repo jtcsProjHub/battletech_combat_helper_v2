@@ -56,7 +56,7 @@ def clean(node):
 
 # Which critTable entries describe the equipment mounted at a weapon's location.
 LOCATION_CRIT_TABLES = {
-    "LA": ["crit_left_arm", "crit_left_side"], "RA": ["crit_right_arm", "crit_right_side"],
+    "LA": ["crit_left_arm"], "RA": ["crit_right_arm"],
     "LT": ["crit_left_torso"], "RT": ["crit_right_torso"], "CT": ["crit_center_torso"],
     "HD": ["crit_head"], "LL": ["crit_left_leg"], "RL": ["crit_right_leg"],
 }
