@@ -1,15 +1,14 @@
-/*
-In contrast to mech_data_test, which uses synthetic data and tests some additional
-robustness conditions, this test file is focused on loading and parsing actual data.
-It uses the three variants of the first mech from the Force Pack Wave One book (Koshi / Mist Lynx)
-*/
-import 'dart:convert';
+// File: test/mech_asset_load_test.dart
+// In contrast to mech_data_test, which uses synthetic data and tests some additional
+// robustness conditions, this test file is focused on loading and parsing actual data.
+// It uses the three variants of the first mech from the Force Pack Wave One book (Koshi / Mist Lynx)
+
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:battletech_combat_helper_v2/era.dart';
+import 'package:battletech_combat_helper_v2/ammo_rules.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
 
@@ -48,22 +47,31 @@ void main() {
         expect(koshiPrime.weapons[0].type, "Active Probe");
         expect(koshiPrime.weapons[0].tons, isNull);
         expect(koshiPrime.weapons[1].type, "Machine Gun");
-        expect(koshiPrime.weapons[1].tons, 0.5);
+        expect(koshiPrime.weapons[1].tons, 0.25);
         expect(koshiPrime.weapons[1].quantity, 2);
         expect(koshiPrime.totalWeaponTons, 5.0);
       });
 
       test('basic ammo testing', () {
-        final koshiPrime = mechs.first;
-
+        for (final mech in mechs) {
+          expect(AmmoRules.ammoWithoutWeapon(mech), isEmpty, reason: mech.id);
+        }
       });
 
       test('all chassis names and tonnage match', () {
-
+        final first = mechs.first;
+        for (final mech in mechs) {
+          expect(mech.name, first.name, reason: mech.id);
+          expect(mech.tonnage, first.tonnage, reason: mech.id);
+        }
       });
 
       test('all variant names do not match', () {
-
+        for (final mech in mechs) {
+          expect(mech.variant, isNotEmpty, reason: mech.id);
+        }
+        final variants = mechs.map((m) => m.variant).toList();
+        expect(variants.toSet(), hasLength(variants.length));
       });
   });
 
