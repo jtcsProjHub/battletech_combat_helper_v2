@@ -6,6 +6,8 @@ import 'dart:io' show File;
 
 import 'package:flutter/services.dart' show rootBundle;
 
+import 'era.dart';
+
 enum TechBase { unknown, innerSphere, clan, mixed, pirate }
 enum HeatSinkType { unknown, single, dbl }
 enum Role { unknown, ambusher, brawler, juggernaut, missileBoat, scout, skirmisher, sniper, striker }
@@ -26,6 +28,7 @@ class Mech {
   final double tonnage;
   final int introYear; // e.g. 3025, 3075
   final String introEra; // e.g. 'Star League'
+  final Map<Era, List<String>> availability; // factions that can field this variant in each era (MUL data)
   final Role role;
   final String engineType; // optional engine type (e.g. "Fusion", "XL Fusion", etc.)
 
@@ -65,6 +68,7 @@ class Mech {
     required this.tonnage,
     this.introYear = 0,
     this.introEra = '',
+    this.availability = const {},
     this.role = Role.unknown,
     this.engineType = '',
     this.walk = 0,
@@ -95,6 +99,7 @@ class Mech {
     double? tonnage,
     int? introYear,
     String? introEra,
+    Map<Era, List<String>>? availability,
     Role? role,
     String? engineType,
     int? walk,
@@ -123,6 +128,7 @@ class Mech {
       tonnage: tonnage ?? this.tonnage,
       introYear: introYear ?? this.introYear,
       introEra: introEra ?? this.introEra,
+      availability: availability ?? this.availability,
       role: role ?? this.role,
       engineType: engineType ?? this.engineType,
       walk: walk ?? this.walk,
@@ -189,6 +195,7 @@ class Mech {
         'tonnage': tonnage,
         'introYear': introYear,
         'introEra': introEra,
+        'availability': availability.map((era, factions) => MapEntry(era.label, factions)),
         'weightClass': weightClass.index,
         'role': role.index,
         'engineType': engineType,
@@ -219,6 +226,7 @@ class Mech {
         tonnage: (json['tonnage'] as num).toDouble(),
         introYear: json['introYear'] as int? ?? 0,
         introEra: json['introEra'] as String? ?? '',
+        availability: _availabilityFromJson(json['availability']),
         role: _enumFromIndex(Role.values, json['role'], Role.unknown),
         engineType: json['engineType'] as String? ?? '',
         walk: json['walk'] as int? ?? 0,
@@ -255,6 +263,20 @@ class Mech {
           (key, value) => MapEntry(key, value as int),
         ) ?? const {}
       );
+
+  // The era this variant was introduced in, or null when the data has none.
+  Era? get era => Era.fromLabel(introEra);
+
+  // Availability is stored in JSON as {era label: [faction, ...]}; eras this app doesn't know are skipped.
+  static Map<Era, List<String>> _availabilityFromJson(dynamic value) {
+    if (value is! Map) return const {};
+    final result = <Era, List<String>>{};
+    value.forEach((label, factions) {
+      final era = Era.fromLabel(label as String);
+      if (era != null && factions is List) result[era] = factions.map((f) => f.toString()).toList();
+    });
+    return result;
+  }
 
   // Heat sinks are stored in JSON as [typeIndex, count].
   static HeatSinks _heatSinksFromJson(dynamic value) {

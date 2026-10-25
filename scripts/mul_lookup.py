@@ -208,6 +208,10 @@ def merge_record(mech: dict, record: dict) -> list[str]:
             mech[field] = value
         elif mech[field] != value:
             notes.append(f"{field} is {mech[field]!r} but MUL says {value} (left unchanged, review)")
+    # Availability is copied as-is rather than filled in, so the app can read everything from the mech file alone.
+    if record["availability"] and mech.get("availability") != record["availability"]:
+        notes.append("availability updated")
+        mech["availability"] = record["availability"]
     return notes
 
 

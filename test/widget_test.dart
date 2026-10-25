@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:battletech_combat_helper_v2/main.dart';
+import 'package:battletech_combat_helper_v2/mech_library.dart';
 import 'package:battletech_combat_helper_v2/screens/lance_builder_screen.dart';
 
 void main() {
@@ -9,7 +11,11 @@ void main() {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(ProviderScope(
+      // The real provider parses the bundled asset on an isolate, which doesn't work under the test clock.
+      overrides: [mechLibraryProvider.overrideWith((ref) => MechLibrary(const []))],
+      child: const MyApp(),
+    ));
   }
 
   testWidgets('Main menu shows the three options and Quit', (tester) async {
@@ -28,6 +34,7 @@ void main() {
     await tester.tap(find.text('CREATE / EDIT LANCE PRECONS').first);
     await tester.pumpAndSettle();
     expect(find.byType(LanceBuilderScreen), findsOneWidget);
+    expect(find.textContaining('0 mechs loaded'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
