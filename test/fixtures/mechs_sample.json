@@ -1,0 +1,55 @@
+[
+  {
+    "id": "koshi_mist_lynx_prime",
+    "name": "Koshi (Mist Lynx)",
+    "variant": "Prime",
+    "mulSlug": "koshi-mist-lynx-prime",
+    "manufacturer": "",
+    "techBase": 2,
+    "tonnage": 25.0,
+    "introYear": 0,
+    "introEra": "",
+    "role": 5,
+    "engineType": "XL Fusion Engine",
+    "walk": 7,
+    "run": 11,
+    "jump": 6,
+    "armorTotal": 67,
+    "armorByLocation": {
+      "left_torso": 7, "right_torso": 7, "left_arm": 4, "right_arm": 4,
+      "left_leg": 5, "right_leg": 5, "head": 9, "center_torso": 10,
+      "rear_left_torso": 5, "rear_right_torso": 5, "rear_center_torso": 6
+    },
+    "structureTotal": 40,
+    "structureByLocation": {
+      "left_torso": 6, "right_torso": 6, "left_arm": 4, "right_arm": 4,
+      "left_leg": 6, "right_leg": 6, "center_torso": 8
+    },
+    "heatSinkTypeAndNumber": [2, 20],
+    "maxHeat": 40,
+    "weapons": [
+      {"type": "Active Probe", "location": "HD", "quantity": 1, "heat": null, "heatType": null, "damage": null, "damageType": null, "minRange": null, "shortRange": null, "mediumRange": null, "longRange": null, "tons": null},
+      {"type": "Machine Gun", "location": "RA", "quantity": 2, "heat": 0, "heatType": 0, "damage": 2, "damageType": 0, "minRange": 0, "shortRange": 1, "mediumRange": 2, "longRange": 3, "tons": 0.5, "techBase": 0},
+      {"type": "Streak SRM 4", "location": "RA", "quantity": 1, "heat": 3, "heatType": 0, "damage": 2, "damageType": 2, "minRange": 0, "shortRange": 3, "mediumRange": 6, "longRange": 9, "tons": 3, "techBase": 0}
+    ],
+    "battleValue": 1011,
+    "critTable": {
+      "crit_center_torso": ["XL Fusion Engine", "XL Fusion Engine", "Gyro"]
+    },
+    "ammo": {"Machine Gun": 100, "Streak SRM 4": 25}
+  },
+  {
+    "id": "atlas_as7_d",
+    "name": "Atlas",
+    "variant": "AS7-D",
+    "techBase": 1,
+    "tonnage": 100,
+    "role": 3,
+    "walk": 3,
+    "run": 5,
+    "heatSinkTypeAndNumber": [1, 20],
+    "weapons": [
+      {"type": "AC/20", "location": "RT", "heat": 7, "tons": 14}
+    ]
+  }
+]

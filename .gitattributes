@@ -1,0 +1,2 @@
+ assets/base_data/** filter=git-crypt diff=git-crypt
+ assets/thumbnails/** filter=git-crypt diff=git-crypt
