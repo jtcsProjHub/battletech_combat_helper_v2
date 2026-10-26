@@ -7,6 +7,7 @@ import 'dart:io' show File;
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'era.dart';
+import 'location.dart';
 
 enum TechBase { unknown, innerSphere, clan, mixed, pirate }
 enum HeatSinkType { unknown, single, dbl }
@@ -39,9 +40,9 @@ class Mech {
 
   // Core internals
   final int armorTotal;
-  final Map<String, int> armorByLocation; // optional armor by location
+  final Map<Location, int> armorByLocation; // optional armor by location
   final int structureTotal; // total internal structure points
-  final Map<String, int> structureByLocation; // optional structure by location
+  final Map<Location, int> structureByLocation; // optional structure by location
   final HeatSinks heatSinks;
   final int maxHeat; // optional thermal limit (0 if not used)
 
@@ -51,7 +52,7 @@ class Mech {
   final Map<String, int> ammo; // ammo counts by weapon name
 
   // Crit Tables
-  final Map<String, List<String>>? critTable; // critical hit table
+  final Map<Location, List<String>>? critTable; // critical hit table
 
   // Optional values
   final int? battleValue;
@@ -106,9 +107,9 @@ class Mech {
     int? run,
     int? jump,
     int? armorTotal,
-    Map<String, int>? armorByLocation,
+    Map<Location, int>? armorByLocation,
     int? structureTotal,
-    Map<String, int>? structureByLocation,
+    Map<Location, int>? structureByLocation,
     HeatSinks? heatSinks,
     int? maxHeat,
     List<Weapon>? weapons,
@@ -116,7 +117,7 @@ class Mech {
     int? battleValue,
     int? cost,
     String? notes,
-    Map<String, List<String>>? critTable,
+    Map<Location, List<String>>? critTable,
     Map<String, int>? ammo,
   }) {
     return Mech(
@@ -203,9 +204,9 @@ class Mech {
         'run': run,
         'jump': jump,
         'armorTotal': armorTotal,
-        'armorByLocation': armorByLocation,
+        'armorByLocation': armorByLocation.map((loc, v) => MapEntry(loc.jsonKey, v)),
         'structureTotal': structureTotal,
-        'structureByLocation': structureByLocation,
+        'structureByLocation': structureByLocation.map((loc, v) => MapEntry(loc.jsonKey, v)),
         'heatSinkTypeAndNumber': [heatSinks.type.index, heatSinks.count],
         'maxHeat': maxHeat,
         'weapons': weapons.map((w) => w.toJson()).toList(),
@@ -213,7 +214,7 @@ class Mech {
         'battleValue': battleValue,
         'cost': cost,
         'notes': notes,
-        'critTable': critTable,
+        'critTable': critTable?.map((loc, v) => MapEntry(loc.critKey, v)),
         'ammo': ammo,
       };
 
@@ -234,11 +235,11 @@ class Mech {
         jump: json['jump'] as int? ?? 0,
         armorTotal: json['armorTotal'] as int? ?? 0,
         armorByLocation: (json['armorByLocation'] as Map<String, dynamic>?)
-                ?.map((key, value) => MapEntry(key, value as int)) ??
+                ?.map((key, value) => MapEntry(Location.fromJsonKey(key), value as int)) ??
             const {},
         structureTotal: json['structureTotal'] as int? ?? 0,
         structureByLocation: (json['structureByLocation'] as Map<String, dynamic>?)
-                ?.map((key, value) => MapEntry(key, value as int)) ??
+                ?.map((key, value) => MapEntry(Location.fromJsonKey(key), value as int)) ??
             const {},
         heatSinks: _heatSinksFromJson(json['heatSinkTypeAndNumber']),
         maxHeat: json['maxHeat'] as int? ?? 0,
@@ -255,7 +256,7 @@ class Mech {
         notes: json['notes'] as String?,
         critTable: (json['critTable'] as Map<String, dynamic>?)?.map(
           (key, value) => MapEntry(
-            key,
+            Location.fromCritKey(key),
             (value as List<dynamic>).map((e) => e.toString()).toList(),
           ),
         ) ?? const {},

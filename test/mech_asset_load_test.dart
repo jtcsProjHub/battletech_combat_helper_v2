@@ -11,6 +11,7 @@ import 'package:battletech_combat_helper_v2/era.dart';
 import 'package:battletech_combat_helper_v2/ammo_rules.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
+import 'package:battletech_combat_helper_v2/location.dart';
 
 void main() {
   group('chassis variants from sample fixture', () {
@@ -36,9 +37,9 @@ void main() {
         expect(koshiPrime.tonnage, 25.0);
         expect(koshiPrime.weightClass, WeightClass.light);
         expect(koshiPrime.heatSinks, (type: HeatSinkType.dbl, count: 10));
-        expect(koshiPrime.armorByLocation['rear_center_torso'], 6);
+        expect(koshiPrime.armorByLocation[Location.rearCenterTorso], 6);
         expect(koshiPrime.ammo['Streak SRM 4'], 25);
-        expect(koshiPrime.critTable!['crit_center_torso'], hasLength(12));
+        expect(koshiPrime.critTable![Location.centerTorso], hasLength(12));
       });
 
       test('reads all weapons', () {

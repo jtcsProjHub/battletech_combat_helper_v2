@@ -3,11 +3,12 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:battletech_combat_helper_v2/location.dart';
 
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 
 // A mech with every field set to a non-default value.
-const fullMech = Mech(
+final fullMech = Mech(
   id: 'hbk-4g',
   name: 'Hunchback',
   variant: 'HBK-4G',
@@ -22,24 +23,24 @@ const fullMech = Mech(
   run: 6,
   jump: 0,
   armorTotal: 160,
-  armorByLocation: {'head': 9, 'center_torso': 26},
+  armorByLocation: {Location.head: 9, Location.centerTorso: 26},
   structureTotal: 83,
-  structureByLocation: {'head': 3, 'center_torso': 16},
+  structureByLocation: {Location.head: 3, Location.centerTorso: 16},
   heatSinks: (type: HeatSinkType.single, count: 13),
   maxHeat: 13,
-  weapons: [
+  weapons: const [
     Weapon(type: 'AC/20', heat: 7, damage: 20, shortRange: 3, mediumRange: 6, longRange: 9, tons: 14, location: 'RT'),
     Weapon(type: 'Medium Laser', heat: 3, damage: 5, shortRange: 3, mediumRange: 6, longRange: 9, tons: 1, location: 'LA'),
     Weapon(type: 'Small Laser', heat: 1, damage: 3, shortRange: 1, mediumRange: 2, longRange: 3, tons: 0.5, location: 'HD'),
   ],
-  equipment: [
+  equipment: const [
     Equipment(name: 'CASE', type: 'CASE', tons: 0.5, criticals: 1, meta: {'location': 'RT'}),
   ],
   battleValue: 1041,
   cost: 3467920,
   notes: 'Classic urban brawler',
-  critTable: {'crit_head': ['Life Support', 'Sensors', 'Cockpit']},
-  ammo: {'AC/20': 10},
+  critTable: {Location.head: ['Life Support', 'Sensors', 'Cockpit']},
+  ammo: const {'AC/20': 10},
 );
 
 Mech minimalMech({double tonnage = 20}) => Mech(id: 'x', name: 'Test', tonnage: tonnage);
@@ -134,7 +135,7 @@ void main() {
         'id': 'x', 'name': 'Test', 'tonnage': 20,
         'critTable': {'crit_left_arm': ['Shoulder', 1, null]},
       });
-      expect(m.critTable!['crit_left_arm'], ['Shoulder', '1', 'null']);
+      expect(m.critTable![Location.leftArm], ['Shoulder', '1', 'null']);
     });
 
     test('ignores the derived weightClass key', () {
@@ -343,9 +344,9 @@ void main() {
         expect(koshi.tonnage, 25.0);
         expect(koshi.weightClass, WeightClass.light);
         expect(koshi.heatSinks, (type: HeatSinkType.dbl, count: 20));
-        expect(koshi.armorByLocation['rear_center_torso'], 6);
+        expect(koshi.armorByLocation[Location.rearCenterTorso], 6);
         expect(koshi.ammo['Streak SRM 4'], 25);
-        expect(koshi.critTable!['crit_center_torso'], hasLength(3));
+        expect(koshi.critTable![Location.centerTorso], hasLength(3));
       });
 
       test('reads weapons, including null and half-ton entries', () {

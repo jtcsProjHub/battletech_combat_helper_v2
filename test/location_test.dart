@@ -22,10 +22,10 @@ void main() {
     });
 
     test('lookups return null for unknown or empty input', () {
-      expect(Location.fromCode('R'), isNull);
-      expect(Location.fromCode(null), isNull);
-      expect(Location.fromCritKey('crit_right_side'), isNull);
-      expect(Location.fromLabel(''), isNull);
+      expect(Location.fromCode('R'), Location.invalid);
+      expect(Location.fromCode(null), Location.invalid);
+      expect(Location.fromCritKey('crit_right_side'), Location.invalid);
+      expect(Location.fromLabel(''), Location.invalid);
     });
   });
 }
