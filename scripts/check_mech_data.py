@@ -18,9 +18,10 @@ STRUCTURE_TABLE = {
     80: (25, 17, 13, 17), 85: (27, 18, 14, 18), 90: (29, 19, 15, 19), 95: (30, 20, 16, 20),
     100: (31, 21, 17, 21),
 }
+HEAD_STRUCTURE = 3
 STRUCTURE_INDEX = {
     "center_torso": 0, "left_torso": 1, "right_torso": 1,
-    "left_arm": 2, "right_arm": 2, "left_leg": 3, "right_leg": 3,
+    "left_arm": 2, "right_arm": 2, "left_leg": 3, "right_leg": 3, "head": 4,
 }
 MAX_HEAD_ARMOR = 9
 # Structure follows from tonnage, so a wrong value is corrected. If more locations than this disagree with the table,
@@ -139,7 +140,7 @@ def check_mech(mech: dict) -> list[tuple[str, tuple[str, ...]]]:
     armor = mech.get("armorByLocation") or {}
     structure = mech.get("structureByLocation") or {}
     if tonnage is not None:
-        expected = STRUCTURE_TABLE[tonnage]
+        expected = STRUCTURE_TABLE[tonnage] + (HEAD_STRUCTURE,)
         wrong = [location for location in STRUCTURE_INDEX if structure.get(location) != expected[STRUCTURE_INDEX[location]]]
         if wrong and (len(wrong) <= MAX_STRUCTURE_CORRECTIONS or not structure):
             mech["structureByLocation"] = structure = dict(structure)
@@ -163,7 +164,9 @@ def check_mech(mech: dict) -> list[tuple[str, tuple[str, ...]]]:
     if armor.get("head", 0) > MAX_HEAD_ARMOR:
         issues.append((f"armor head {armor['head']} exceeds max {MAX_HEAD_ARMOR}", (key("armorByLocation"), key("head"),)))
     for location, value in structure.items():
-        # Armor can be at most twice structure; torso front and rear share that limit.
+        # Armor can be at most twice structure; torso front and rear share that limit. The head has its own maximum, checked above.
+        if location == "head":
+            continue
         total = armor.get(location, 0) + armor.get(f"rear_{location}", 0)
         if total > 2 * value:
             issues.append((f"armor {location} {total} exceeds 2x structure ({2 * value})", (key("armorByLocation"), key(location),)))

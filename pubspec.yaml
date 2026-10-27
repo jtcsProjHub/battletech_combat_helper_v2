@@ -61,6 +61,7 @@ flutter:
 
   assets:
     - assets/base_data/mechs_clean.json
+    - assets/thumbnails/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

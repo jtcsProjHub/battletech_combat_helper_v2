@@ -64,6 +64,8 @@ ROLE_MAP = {
     "sniper": 7,
     "striker": 8,
 }
+# Head internal structure is the same for every tonnage, so the record sheet has no box for it.
+HEAD_STRUCTURE = 3
 
 # Global data and variables
 # All ROI coordinates below are in pixels of the "waveone" layout rendered at 300 DPI (2725x3475 page).
@@ -263,6 +265,9 @@ def parse_mech_text(text: dict[str, str]) -> dict[str, object | None]:
     structure_by_location: dict[str, int] = {}
     armor_by_location, armor_total = parse_armor_data(dict(filter(lambda item: item[0].startswith("armor_"), joined_mech_data.items())), "armor_")
     structure_by_location, structure_total = parse_armor_data(dict(filter(lambda item: item[0].startswith("struct_"), joined_mech_data.items())), "struct_")
+    # The record sheet has no head structure box, since head structure is always 3.
+    structure_by_location["head"] = HEAD_STRUCTURE
+    structure_total += HEAD_STRUCTURE
     heat_sink_type_and_number = parse_heat_sink_data(joined_mech_data.get("heat_sinks", ""))
 
     mech_id = slugify(f"{name} {variant}") if name and variant else None
