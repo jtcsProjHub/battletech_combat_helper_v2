@@ -283,10 +283,26 @@ void main() {
     await tester.tap(find.byTooltip('Lower Gunnery'));
     await tester.tap(find.byTooltip('Lower Piloting'));
     await tester.pump();
+    // The default target is 3000; archer is the only mech.
+    expect(
+      find.text('1,353 → 1,786  ×1.32', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.text('1,353 → 1,786  / 3,000', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('1,647 → 1,214', findRichText: true), findsOneWidget);
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
 
     expect(find.text('Trixie Cottonwood'), findsOneWidget);
+    // archer is 1353 base; ×1.32 for 3/4 is 1785.96, so 1786.
+    expect(find.text('1786 BV  base 1353', findRichText: true), findsOneWidget);
+    expect(
+      find.textContaining('1786 / ', findRichText: true),
+      findsOneWidget,
+    ); // top bar total
     expect(find.byTooltip('Gunnery 3'), findsOneWidget);
     expect(find.byTooltip('Piloting 4'), findsOneWidget);
 

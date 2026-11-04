@@ -218,6 +218,13 @@ void main() {
     );
 
     expect(find.text('Trixie Cottonwood'), findsOneWidget);
+    // Her 3/4 skills raise the Thunderbolt from 1,335 to 1,762 BV.
+    expect(find.text('2,863'), findsOneWidget);
+    expect(
+      find.text('1,762 BV\nbase 1,335', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('×1.32 BV '), findsOneWidget);
     expect(find.byTooltip('Gunnery 3'), findsOneWidget);
     expect(find.byTooltip('Piloting 4'), findsOneWidget);
     expect(find.text('No pilot'), findsOneWidget);

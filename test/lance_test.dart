@@ -70,4 +70,12 @@ void main() {
     );
     expect(full.isFull, isTrue);
   });
+
+  test('pilot skills stay within 0-8', () {
+    expect(() => Pilot(gunnery: 9), throwsA(isA<AssertionError>()));
+    expect(() => Pilot(piloting: -1), throwsA(isA<AssertionError>()));
+    // Out-of-range values in a saved file are clamped, not rejected.
+    final loaded = Pilot.fromJson({'name': 'X', 'gunnery': -2, 'piloting': 12});
+    expect(loaded, const Pilot(name: 'X', gunnery: 0, piloting: 8));
+  });
 }

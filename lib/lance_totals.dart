@@ -4,9 +4,9 @@
 
 import 'dart:math' as math;
 
+import 'bv_rules.dart';
 import 'lance.dart';
 import 'mech_data.dart';
-import 'mech_labels.dart';
 import 'mech_library.dart';
 import 'pilot_data.dart';
 
@@ -30,7 +30,9 @@ class LanceTotals {
 
   LanceParameters get parameters => lance.parameters;
 
-  int get usedBattleValue => mechs.fold(0, (sum, m) => sum + m.bv);
+  /// Each mech's BV adjusted for its pilot's skills.
+  int get usedBattleValue =>
+      entries.fold(0, (sum, e) => sum + e.mech.bvWith(e.pilot));
   double get tonnage => mechs.fold(0.0, (sum, m) => sum + m.tonnage);
   int get remainingBattleValue =>
       parameters.targetBattleValue - usedBattleValue;

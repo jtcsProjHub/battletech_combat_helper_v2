@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../bv_rules.dart';
 import '../lance.dart';
 import '../lance_totals.dart';
 import '../mech_data.dart';
@@ -355,9 +356,9 @@ class _MechCard extends StatelessWidget {
                               ),
                               Text.rich(
                                 TextSpan(
-                                  text: groupDigits(m.bv),
-                                  children: const [
-                                    TextSpan(
+                                  text: groupDigits(m.bvWith(pilot)),
+                                  children: [
+                                    const TextSpan(
                                       text: ' BV',
                                       style: TextStyle(
                                         fontSize: 13,
@@ -365,6 +366,15 @@ class _MechCard extends StatelessWidget {
                                         color: AppColors.textDim,
                                       ),
                                     ),
+                                    if (!pilot.isStandardSkill)
+                                      TextSpan(
+                                        text: '\nbase ${groupDigits(m.bv)}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w400,
+                                          color: AppColors.textDim,
+                                        ),
+                                      ),
                                   ],
                                 ),
                                 style: const TextStyle(

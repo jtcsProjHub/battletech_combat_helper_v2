@@ -11,23 +11,31 @@ class Pilot {
   final int gunnery;
   final int piloting;
 
+  /// Skills must be within [minSkill]..[maxSkill]. Saved files are clamped
+  /// into range by [Pilot.fromJson].
   const Pilot({
     this.name = '',
     this.gunnery = defaultGunnery,
     this.piloting = defaultPiloting,
-  });
+  }) : assert(gunnery >= minSkill && gunnery <= maxSkill),
+       assert(piloting >= minSkill && piloting <= maxSkill);
 
   /// Classic BattleTech's standard pilot.
   static const defaultGunnery = 4;
   static const defaultPiloting = 5;
 
-  /// Skills run from 0 (best) to 8.
+  /// Skills run from 0 (best) to 8, the range of the BV Skill Multiplier
+  /// Table.
   static const minSkill = 0;
   static const maxSkill = 8;
 
   /// An unnamed pilot with the standard skills, which means no pilot has
   /// been assigned. The mech still plays at the standard skills.
   bool get isDefault => this == const Pilot();
+
+  /// Standard skills, so the mech's listed BV applies unchanged.
+  bool get isStandardSkill =>
+      gunnery == defaultGunnery && piloting == defaultPiloting;
 
   Pilot copyWith({String? name, int? gunnery, int? piloting}) => Pilot(
     name: name ?? this.name,
@@ -43,9 +51,12 @@ class Pilot {
 
   factory Pilot.fromJson(Map<String, dynamic> json) => Pilot(
     name: json['name'] as String? ?? '',
-    gunnery: (json['gunnery'] as num?)?.toInt() ?? defaultGunnery,
-    piloting: (json['piloting'] as num?)?.toInt() ?? defaultPiloting,
+    gunnery: _skillFromJson(json['gunnery'], defaultGunnery),
+    piloting: _skillFromJson(json['piloting'], defaultPiloting),
   );
+
+  static int _skillFromJson(Object? value, int fallback) =>
+      ((value as num?)?.toInt() ?? fallback).clamp(minSkill, maxSkill);
 
   @override
   bool operator ==(Object other) =>

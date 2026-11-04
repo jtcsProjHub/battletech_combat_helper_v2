@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../bv_rules.dart';
 import '../lance_draft.dart';
 import '../mech_data.dart';
 import '../mech_labels.dart';
@@ -62,6 +63,7 @@ class LanceRosterPanel extends StatelessWidget {
                 context,
                 mech: mech,
                 pilot: pilot,
+                lance: draft.totals,
               );
               if (chosen != null) draft.setPilot(mech.id, chosen);
             },
@@ -188,8 +190,20 @@ class _RosterCard extends StatelessWidget {
                             color: AppColors.textDim,
                           ),
                         ),
-                        Text(
-                          '${m.bv} BV',
+                        Text.rich(
+                          TextSpan(
+                            text: '${m.bvWith(pilot)} BV',
+                            children: [
+                              if (!pilot.isStandardSkill)
+                                TextSpan(
+                                  text: '  base ${m.bv}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.textDim,
+                                  ),
+                                ),
+                            ],
+                          ),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,

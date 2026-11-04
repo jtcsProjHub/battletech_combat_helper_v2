@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_theme.dart';
+import '../bv_rules.dart';
+import '../lance_totals.dart';
 import '../mech_data.dart';
+import '../mech_labels.dart';
 import '../pilot_data.dart';
 
 const _gunneryColor = Color(0xFFD23C2E);
@@ -181,6 +184,12 @@ class PilotRow extends StatelessWidget {
               style: pilot.name.isEmpty ? _dimStyle : _nameStyle,
             ),
           ),
+          if (!pilot.isStandardSkill) ...[
+            Text(
+              '×${BvRules.skillMultiplier(pilot).toStringAsFixed(2)} BV ',
+              style: _dimStyle,
+            ),
+          ],
           PilotSkillBadges(pilot: pilot),
           if (edit != null) ...[
             const SizedBox(width: 6),
@@ -198,21 +207,25 @@ class PilotRow extends StatelessWidget {
 }
 
 /// Asks for the pilot of [mech]. Returns the new pilot, `const Pilot()` when
-/// the pilot is removed, or null on Cancel.
+/// the pilot is removed, or null on Cancel. With [lance], the totals of the
+/// lance the mech is in, the dialog also shows how the skills change the
+/// lance's BV against its target.
 Future<Pilot?> showPilotDialog(
   BuildContext context, {
   required Mech mech,
   required Pilot pilot,
+  LanceTotals? lance,
 }) => showDialog<Pilot>(
   context: context,
-  builder: (_) => _PilotDialog(mech: mech, pilot: pilot),
+  builder: (_) => _PilotDialog(mech: mech, pilot: pilot, lance: lance),
 );
 
 class _PilotDialog extends StatefulWidget {
-  const _PilotDialog({required this.mech, required this.pilot});
+  const _PilotDialog({required this.mech, required this.pilot, this.lance});
 
   final Mech mech;
   final Pilot pilot;
+  final LanceTotals? lance;
 
   @override
   State<_PilotDialog> createState() => _PilotDialogState();
@@ -265,6 +278,13 @@ class _PilotDialogState extends State<_PilotDialog> {
               onChanged: (v) => setState(() => _piloting = v),
             ),
             const SizedBox(height: 16),
+            _BudgetPreview(
+              mech: m,
+              before: widget.pilot,
+              after: Pilot(gunnery: _gunnery, piloting: _piloting),
+              lance: widget.lance,
+            ),
+            const SizedBox(height: 8),
             const Text(
               'Lower is better. The standard pilot is Gunnery '
               '${Pilot.defaultGunnery}, Piloting ${Pilot.defaultPiloting}.',
@@ -330,6 +350,136 @@ class _SkillStepper extends StatelessWidget {
           tooltip: 'Raise $name',
           onPressed: value < Pilot.maxSkill ? () => onChanged(value + 1) : null,
           icon: const Icon(Icons.add),
+        ),
+      ],
+    );
+  }
+}
+
+/// What the chosen skills do to the mech's BV and, with [lance], to the
+/// lance total and the BV left under its target. Each row reads
+/// "before → after" while the skills differ from the current pilot's.
+class _BudgetPreview extends StatelessWidget {
+  const _BudgetPreview({
+    required this.mech,
+    required this.before,
+    required this.after,
+    this.lance,
+  });
+
+  final Mech mech;
+  final Pilot before;
+  final Pilot after;
+  final LanceTotals? lance;
+
+  @override
+  Widget build(BuildContext context) {
+    final mechBefore = mech.bvWith(before);
+    final mechAfter = mech.bvWith(after);
+    final multiplier = BvRules.skillMultiplier(after).toStringAsFixed(2);
+    final totals = lance;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.panelRaised,
+        border: Border.all(color: AppColors.cellBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _BudgetRow(
+            label: 'Mech BV',
+            before: groupDigits(mechBefore),
+            after: groupDigits(mechAfter),
+            note: '×$multiplier',
+          ),
+          if (totals != null) ..._lanceRows(totals, mechAfter - mechBefore),
+        ],
+      ),
+    );
+  }
+
+  /// The lance total and the BV left, before and after the mech's BV
+  /// changes by [delta].
+  static List<Widget> _lanceRows(LanceTotals totals, int delta) {
+    final target = totals.parameters.targetBattleValue;
+    final usedBefore = totals.usedBattleValue;
+    final usedAfter = usedBefore + delta;
+    final over = usedAfter > target;
+    String left(int used) => used > target
+        ? '${groupDigits(used - target)} over'
+        : groupDigits(target - used);
+    return [
+      const SizedBox(height: 6),
+      _BudgetRow(
+        label: 'Lance BV',
+        before: groupDigits(usedBefore),
+        after: groupDigits(usedAfter),
+        note: '/ ${groupDigits(target)}',
+        over: over,
+      ),
+      const SizedBox(height: 6),
+      _BudgetRow(
+        label: 'Left',
+        before: left(usedBefore),
+        after: left(usedAfter),
+        over: over,
+      ),
+    ];
+  }
+}
+
+class _BudgetRow extends StatelessWidget {
+  const _BudgetRow({
+    required this.label,
+    required this.before,
+    required this.after,
+    this.note,
+    this.over = false,
+  });
+
+  final String label;
+  final String before;
+  final String after;
+  final String? note;
+
+  /// Shows the new value in the over-budget color.
+  final bool over;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        SizedBox(
+          width: 84,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: AppColors.textDim),
+          ),
+        ),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                if (before != after) TextSpan(text: '$before → '),
+                TextSpan(
+                  text: after,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: over ? AppColors.overBudget : AppColors.accent,
+                  ),
+                ),
+                if (note != null) TextSpan(text: '  $note'),
+              ],
+            ),
+            style: const TextStyle(
+              fontSize: 15,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ),
       ],
     );
