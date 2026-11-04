@@ -25,6 +25,14 @@ Building out the data backend and the Lance Builder.
 This project is a Flutter application that is configured for building in Linux, though it can certainly be modified for other platforms
 using the Flutter CLI.
 
+To build on Linux, follow Flutter's [Linux desktop setup](https://docs.flutter.dev/platform-integration/linux/setup), then also install
+the LLVM linker that matches your clang version (for clang 18 on Ubuntu, `sudo apt install lld-18`). Some dependencies have native build
+hooks, and without the linker the build fails with `Failed to find any of [ld.lld, ld]`. The linker is only needed to build the app,
+not to run a build.
+
+Saved lances are JSON files in `~/.local/share/io.github.jcs_personal_projects.battletech_combat_helper/lances/`, one file per lance.
+The folder name comes from `APPLICATION_ID` in `linux/CMakeLists.txt`, so changing that ID moves where the app looks for saved lances.
+
 A few resources to get you started if this is your first Flutter project:
 
 - [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)

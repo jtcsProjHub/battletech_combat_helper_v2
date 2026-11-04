@@ -11,29 +11,25 @@ class Pilot {
   final int gunnery;
   final int piloting;
 
-  const Pilot({
-    this.name = '',
-    this.gunnery = 4,
-    this.piloting = 5,
-  });
+  const Pilot({this.name = '', this.gunnery = 4, this.piloting = 5});
 
   Pilot copyWith({String? name, int? gunnery, int? piloting}) => Pilot(
-        name: name ?? this.name,
-        gunnery: gunnery ?? this.gunnery,
-        piloting: piloting ?? this.piloting,
-      );
+    name: name ?? this.name,
+    gunnery: gunnery ?? this.gunnery,
+    piloting: piloting ?? this.piloting,
+  );
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'gunnery': gunnery,
-        'piloting': piloting,
-      };
+    'name': name,
+    'gunnery': gunnery,
+    'piloting': piloting,
+  };
 
   factory Pilot.fromJson(Map<String, dynamic> json) => Pilot(
-        name: json['name'] as String? ?? '',
-        gunnery: (json['gunnery'] as num?)?.toInt() ?? 4,
-        piloting: (json['piloting'] as num?)?.toInt() ?? 5,
-      );
+    name: json['name'] as String? ?? '',
+    gunnery: (json['gunnery'] as num?)?.toInt() ?? 4,
+    piloting: (json['piloting'] as num?)?.toInt() ?? 5,
+  );
 
   @override
   bool operator ==(Object other) =>

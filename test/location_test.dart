@@ -4,9 +4,18 @@ import 'package:battletech_combat_helper_v2/location.dart';
 void main() {
   group('Location', () {
     test('codes, crit keys, and labels are unique', () {
-      expect(Location.values.map((l) => l.code).toSet(), hasLength(Location.values.length));
-      expect(Location.values.map((l) => l.critKey).toSet(), hasLength(Location.values.length));
-      expect(Location.values.map((l) => l.label).toSet(), hasLength(Location.values.length));
+      expect(
+        Location.values.map((l) => l.code).toSet(),
+        hasLength(Location.values.length),
+      );
+      expect(
+        Location.values.map((l) => l.critKey).toSet(),
+        hasLength(Location.values.length),
+      );
+      expect(
+        Location.values.map((l) => l.label).toSet(),
+        hasLength(Location.values.length),
+      );
     });
 
     test('every location round-trips through each lookup', () {

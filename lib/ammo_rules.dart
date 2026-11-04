@@ -18,10 +18,14 @@ class AmmoRules {
 
   // Ammo for a weapon that can use Artemis or Narc, or LB-X cluster ammo, is listed with a suffix;
   // it is still ammo for that weapon.
-  static final RegExp _variantSuffix = RegExp(r'\s*(?:(?:narc|artemis)-capable|\s+cluster)$', caseSensitive: false);
+  static final RegExp _variantSuffix = RegExp(
+    r'\s*(?:(?:narc|artemis)-capable|\s+cluster)$',
+    caseSensitive: false,
+  );
 
   // Lowercase and strip everything but letters and digits, so 'SRM 6' matches 'SRM6'.
-  static String loose(String name) => name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  static String loose(String name) =>
+      name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
   // The loose name of the weapon that fires this ammo, e.g. 'LB 10-X Cluster' -> 'lb10xac'.
   static String weaponKeyForAmmo(String ammoName) {

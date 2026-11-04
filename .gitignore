@@ -52,3 +52,4 @@ app.*.map.json
 /scripts/*.png
 /scripts/*.pdf
 /scripts/*.json
+docs/*

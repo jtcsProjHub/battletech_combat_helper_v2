@@ -1,6 +1,7 @@
 // File: lib/widgets/hud.dart
 // Shared pieces of the HUD look used by the menu-style screens: the numbered
-// menu button, the bracketed panel frame, the hazard stripe, and text styles.
+// menu button, the bracketed panel frame, the hazard stripe, the dashed
+// outline for open slots, and text styles.
 
 import 'package:flutter/material.dart';
 
@@ -278,6 +279,47 @@ class _HazardStripePainter extends CustomPainter {
       canvas.drawPath(path, paint);
     }
     canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Dashed outline around its child, used for open lance slots.
+class DashedOutline extends StatelessWidget {
+  const DashedOutline({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: const _DashedBorderPainter(), child: child);
+  }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.borderStrong
+      ..strokeWidth = 2;
+    const dash = 6.0, gap = 5.0;
+    void line(Offset a, Offset b) {
+      final total = (b - a).distance;
+      final dir = (b - a) / total;
+      for (var d = 0.0; d < total; d += dash + gap) {
+        final end = d + dash < total ? d + dash : total;
+        canvas.drawLine(a + dir * d, a + dir * end, paint);
+      }
+    }
+
+    final r = Offset.zero & size;
+    line(r.topLeft, r.topRight);
+    line(r.topRight, r.bottomRight);
+    line(r.bottomRight, r.bottomLeft);
+    line(r.bottomLeft, r.topLeft);
   }
 
   @override

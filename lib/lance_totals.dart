@@ -1,0 +1,35 @@
+// File: lib/lance_totals.dart
+// Totals for a lance, computed from MechLibrary on each read and never stored.
+// LanceDraft and the read-only roster views share this so the numbers agree.
+
+import 'dart:math' as math;
+
+import 'lance.dart';
+import 'mech_data.dart';
+import 'mech_labels.dart';
+import 'mech_library.dart';
+
+class LanceTotals {
+  LanceTotals(this.lance, this.library)
+    : mechs = [for (final slot in lance.slots) ?library.byId(slot.mechId)];
+
+  final Lance lance;
+  final MechLibrary library;
+
+  /// The mechs in slot order. Slots whose mech id is unknown are skipped.
+  final List<Mech> mechs;
+
+  LanceParameters get parameters => lance.parameters;
+
+  int get usedBattleValue => mechs.fold(0, (sum, m) => sum + m.bv);
+  double get tonnage => mechs.fold(0.0, (sum, m) => sum + m.tonnage);
+  int get remainingBattleValue =>
+      parameters.targetBattleValue - usedBattleValue;
+  bool get isOverBudget => remainingBattleValue < 0;
+  int get openSlots => math.max(0, parameters.maxMechs - lance.slots.length);
+  bool get isFull => openSlots == 0;
+
+  /// Average BV left per open slot, or 0 when the lance is full.
+  int get battleValuePerOpenSlot =>
+      openSlots == 0 ? 0 : math.max(0, remainingBattleValue ~/ openSlots);
+}

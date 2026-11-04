@@ -11,15 +11,16 @@ import 'mech_data.dart';
 
 class MechLibrary {
   MechLibrary(List<Mech> mechs)
-      : mechs = List.unmodifiable(mechs),
-        _byId = {for (final m in mechs) m.id: m},
-        _byIntroEra = _groupByIntroEra(mechs),
-        _byAvailability = _groupByAvailability(mechs);
+    : mechs = List.unmodifiable(mechs),
+      _byId = {for (final m in mechs) m.id: m},
+      _byIntroEra = _groupByIntroEra(mechs),
+      _byAvailability = _groupByAvailability(mechs);
 
   final List<Mech> mechs;
   final Map<String, Mech> _byId;
   final Map<Era, List<Mech>> _byIntroEra;
-  final Map<Era, Map<String, List<Mech>>> _byAvailability; // era -> faction -> mechs
+  final Map<Era, Map<String, List<Mech>>>
+  _byAvailability; // era -> faction -> mechs
 
   Mech? byId(String id) => _byId[id];
 
@@ -42,16 +43,50 @@ class MechLibrary {
     return mechs.where((m) => m.availability.containsKey(era)).toList();
   }
 
-  /// Factions with at least one mech available in [era], or in any era when omitted, sorted by name.
-  List<String> factions({Era? era}) {
-    final names = era != null
-        ? (_byAvailability[era]?.keys ?? const <String>[])
-        : _byAvailability.values.expand((byFaction) => byFaction.keys);
-    return names.toSet().toList()..sort();
+  // The era, faction, and tech base lookups below each narrow by the other two, so a value picked from one
+  // list always leaves at least one mech matching all three filters.
+
+  /// Factions that field at least one mech in [era] with [techBase], sorted by name. Null means any.
+  List<String> factions({Era? era, TechBase? techBase}) {
+    final names = <String>{};
+    for (final m in mechs) {
+      if (techBase != null && m.techBase != techBase) continue;
+      if (era != null) {
+        names.addAll(m.availability[era] ?? const []);
+      } else {
+        m.availability.values.forEach(names.addAll);
+      }
+    }
+    return names.toList()..sort();
   }
 
-  /// The eras at least one mech is available in, in timeline order.
-  List<Era> eras() => (_byAvailability.keys.toList()..sort((a, b) => a.index - b.index));
+  /// The eras in which [faction] fields at least one mech with [techBase], in timeline order. Null means any.
+  List<Era> eras({String? faction, TechBase? techBase}) {
+    final result = <Era>{};
+    for (final m in mechs) {
+      if (techBase != null && m.techBase != techBase) continue;
+      m.availability.forEach((era, factions) {
+        if (faction == null || factions.contains(faction)) result.add(era);
+      });
+    }
+    return result.toList()..sort((a, b) => a.index - b.index);
+  }
+
+  /// The tech bases of the mechs [faction] fields in [era]. Null means any; with a faction but no era, any era
+  /// the faction fields the mech in counts. Matches filterMechs, so with neither set every mech counts.
+  Set<TechBase> techBases({Era? era, String? faction}) {
+    if (era == null && faction == null)
+      return {for (final m in mechs) m.techBase};
+    final result = <TechBase>{};
+    for (final m in mechs) {
+      final fieldedIn = era != null
+          ? [?m.availability[era]]
+          : m.availability.values;
+      if (fieldedIn.any((fs) => faction == null || fs.contains(faction)))
+        result.add(m.techBase);
+    }
+    return result;
+  }
 
   static Map<Era, List<Mech>> _groupByIntroEra(List<Mech> mechs) {
     final result = <Era, List<Mech>>{};
@@ -62,7 +97,9 @@ class MechLibrary {
     return result;
   }
 
-  static Map<Era, Map<String, List<Mech>>> _groupByAvailability(List<Mech> mechs) {
+  static Map<Era, Map<String, List<Mech>>> _groupByAvailability(
+    List<Mech> mechs,
+  ) {
     final result = <Era, Map<String, List<Mech>>>{};
     for (final m in mechs) {
       m.availability.forEach((era, factions) {
@@ -86,4 +123,6 @@ Future<MechLibrary> loadMechLibrary({String assetPath = mechDataAsset}) async {
 
 /// The mech data, loaded once on first read and cached for the life of the app. Watch it as an AsyncValue;
 /// tests can override it with a library built from a fixture.
-final mechLibraryProvider = FutureProvider<MechLibrary>((ref) => loadMechLibrary());
+final mechLibraryProvider = FutureProvider<MechLibrary>(
+  (ref) => loadMechLibrary(),
+);

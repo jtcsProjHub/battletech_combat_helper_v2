@@ -1,6 +1,7 @@
 // File: lib/widgets/new_lance_form.dart
 // Form for starting a new lance: a required name and the starting
-// parameters. Era and faction choices come from the loaded MechLibrary.
+// parameters. Era, faction, and tech base choices come from the loaded
+// MechLibrary, and each list narrows to what the other two still allow.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -69,17 +70,6 @@ class _NewLanceFormState extends State<NewLanceForm> {
     super.dispose();
   }
 
-  void _setEra(Era? era) {
-    setState(() {
-      _era = era;
-      // Drop a faction that has no mechs in the new era.
-      if (_faction != null &&
-          !widget.library.factions(era: era).contains(_faction)) {
-        _faction = null;
-      }
-    });
-  }
-
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     widget.onCreate(
@@ -98,7 +88,10 @@ class _NewLanceFormState extends State<NewLanceForm> {
 
   @override
   Widget build(BuildContext context) {
-    final factions = widget.library.factions(era: _era);
+    final library = widget.library;
+    final eras = library.eras(faction: _faction, techBase: _techBase);
+    final factions = library.factions(era: _era, techBase: _techBase);
+    final techBases = library.techBases(era: _era, faction: _faction);
 
     return Form(
       key: _formKey,
@@ -192,18 +185,15 @@ class _NewLanceFormState extends State<NewLanceForm> {
                               value: null,
                               child: Text('Any era'),
                             ),
-                            for (final e in widget.library.eras())
+                            for (final e in eras)
                               DropdownMenuItem(value: e, child: Text(e.label)),
                           ],
-                          onChanged: _setEra,
+                          onChanged: (e) => setState(() => _era = e),
                         ),
                       ),
                       SizedBox(
                         width: 260,
                         child: DropdownButtonFormField<String?>(
-                          // A new key resets the field when the era change
-                          // clears the faction.
-                          key: ValueKey('faction-${_era?.name}'),
                           initialValue: _faction,
                           isExpanded: true,
                           decoration: _decoration('Target faction'),
@@ -230,10 +220,11 @@ class _NewLanceFormState extends State<NewLanceForm> {
                               child: Text('Any tech base'),
                             ),
                             for (final entry in techBaseLabels.entries)
-                              DropdownMenuItem(
-                                value: entry.key,
-                                child: Text(entry.value),
-                              ),
+                              if (techBases.contains(entry.key))
+                                DropdownMenuItem(
+                                  value: entry.key,
+                                  child: Text(entry.value),
+                                ),
                           ],
                           onChanged: (t) => setState(() => _techBase = t),
                         ),

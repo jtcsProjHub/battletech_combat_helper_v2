@@ -8,6 +8,7 @@ import '../app_theme.dart';
 import '../lance_draft.dart';
 import '../mech_data.dart';
 import '../mech_labels.dart';
+import 'hud.dart';
 import 'mech_thumbnail.dart';
 
 class LanceRosterPanel extends StatelessWidget {
@@ -200,8 +201,7 @@ class _OpenSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: const _DashedBorderPainter(),
+    return DashedOutline(
       child: SizedBox(
         height: 80,
         child: Column(
@@ -226,33 +226,4 @@ class _OpenSlot extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.borderStrong
-      ..strokeWidth = 2;
-    const dash = 6.0, gap = 5.0;
-    void line(Offset a, Offset b) {
-      final total = (b - a).distance;
-      final dir = (b - a) / total;
-      for (var d = 0.0; d < total; d += dash + gap) {
-        final end = d + dash < total ? d + dash : total;
-        canvas.drawLine(a + dir * d, a + dir * end, paint);
-      }
-    }
-
-    final r = Offset.zero & size;
-    line(r.topLeft, r.topRight);
-    line(r.topRight, r.bottomRight);
-    line(r.bottomRight, r.bottomLeft);
-    line(r.bottomLeft, r.topLeft);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

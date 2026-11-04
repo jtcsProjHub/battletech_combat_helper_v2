@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app_theme.dart';
 import '../lance.dart';
+import '../lance_repository.dart';
 import '../mech_library.dart';
 import '../widgets/hex_map_art.dart';
 import '../widgets/hud.dart';
+import '../widgets/lance_roster_detail.dart';
 import '../widgets/new_lance_form.dart';
+import '../widgets/saved_lance_list.dart';
 import 'lance_editor_screen.dart';
 
 /// What the side panel shows.
@@ -30,6 +33,9 @@ class _LanceBuilderScreenState extends ConsumerState<LanceBuilderScreen> {
 
   /// Set by the builder's back arrow; cleared by Save or Cancel.
   Lance? _inProgress;
+
+  /// The saved lance shown in full under Edit Lance; null shows the list.
+  String? _openLanceId;
 
   static const double _wideBreakpoint = 960;
   static const double _minPanelHeight = 600;
@@ -56,8 +62,11 @@ class _LanceBuilderScreenState extends ConsumerState<LanceBuilderScreen> {
       ),
     );
     if (!mounted || result == null) return;
+    // A failed save keeps the mechs, like the back arrow does.
+    final saved = result.saved && await _save(result.lance);
+    if (!mounted) return;
     setState(() {
-      if (result.saved) {
+      if (saved) {
         _inProgress = null;
         _lance = result.lance;
         _mode = _PanelMode.created;
@@ -65,6 +74,67 @@ class _LanceBuilderScreenState extends ConsumerState<LanceBuilderScreen> {
         _inProgress = result.lance;
       }
     });
+  }
+
+  /// Writes the lance to disk. Shows the error and returns false on failure.
+  Future<bool> _save(Lance lance) async {
+    try {
+      await ref.read(savedLancesProvider.notifier).save(lance);
+      return true;
+    } on Object catch (e) {
+      _showError('Could not save ${lance.name}: $e');
+      return false;
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Opens a saved lance in the full-screen builder. Save writes it back
+  /// under the same id; the back arrow drops the changes.
+  Future<void> _editSaved(Lance lance) async {
+    final library = ref.read(mechLibraryProvider).value;
+    if (library == null) return;
+    final result = await Navigator.of(context).push<LanceEditorResult>(
+      MaterialPageRoute(
+        builder: (_) => LanceEditorScreen(lance: lance, library: library),
+      ),
+    );
+    if (!mounted || result == null || !result.saved) return;
+    await _save(result.lance);
+  }
+
+  Future<void> _deleteSaved(Lance lance) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${lance.name}?'),
+        content: const Text(
+          'The saved lance is removed. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(savedLancesProvider.notifier).delete(lance.id);
+      if (mounted) setState(() => _openLanceId = null);
+    } on Object catch (e) {
+      _showError('Could not delete ${lance.name}: $e');
+    }
   }
 
   void _onCancel() => setState(() {
@@ -79,7 +149,10 @@ class _LanceBuilderScreenState extends ConsumerState<LanceBuilderScreen> {
     final menu = _LanceMenu(
       mode: _mode,
       onNew: () => _show(_PanelMode.newLance),
-      onEdit: () => _show(_PanelMode.editLance),
+      onEdit: () => setState(() {
+        _openLanceId = null;
+        _mode = _PanelMode.editLance;
+      }),
     );
     final status = _DataStatus(library: library);
     final panel = _SidePanel(
@@ -89,6 +162,15 @@ class _LanceBuilderScreenState extends ConsumerState<LanceBuilderScreen> {
       inProgress: _inProgress,
       onCreate: _onCreated,
       onCancel: _onCancel,
+      savedLances: _SavedLancesPanel(
+        library: library,
+        lances: ref.watch(savedLancesProvider),
+        openLanceId: _openLanceId,
+        onOpen: (l) => setState(() => _openLanceId = l.id),
+        onBack: () => setState(() => _openLanceId = null),
+        onEdit: _editSaved,
+        onDelete: _deleteSaved,
+      ),
     );
 
     return Scaffold(
@@ -203,6 +285,7 @@ class _SidePanel extends StatelessWidget {
     required this.inProgress,
     required this.onCreate,
     required this.onCancel,
+    required this.savedLances,
   });
 
   final _PanelMode mode;
@@ -211,6 +294,9 @@ class _SidePanel extends StatelessWidget {
   final Lance? inProgress;
   final ValueChanged<Lance> onCreate;
   final VoidCallback onCancel;
+
+  /// The Edit Lance panel content.
+  final Widget savedLances;
 
   @override
   Widget build(BuildContext context) {
@@ -240,13 +326,7 @@ class _SidePanel extends StatelessWidget {
           ),
         );
       case _PanelMode.editLance:
-        return const HudFrame(
-          padding: contentPadding,
-          child: _Message(
-            title: 'Edit Lance',
-            body: 'The list of saved lances goes here. Not built yet.',
-          ),
-        );
+        return HudFrame(padding: contentPadding, child: savedLances);
       case _PanelMode.created:
         return HudFrame(
           padding: contentPadding,
@@ -326,7 +406,7 @@ class _Message extends StatelessWidget {
   }
 }
 
-/// Shown after Save in the builder. The lance is kept in memory only.
+/// Shown after Save in the builder.
 class _CreatedSummary extends StatelessWidget {
   const _CreatedSummary({required this.lance});
 
@@ -384,11 +464,136 @@ class _CreatedSummary extends StatelessWidget {
             ),
           const SizedBox(height: 16),
           const Text(
-            'Kept in memory for this session. Saving to disk is not built yet.',
+            'Saved. Open it again from Edit Lance.',
             style: TextStyle(fontSize: 14, color: AppColors.textDim),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Edit Lance: the saved lances, or one of them in full with Edit and Delete.
+class _SavedLancesPanel extends StatelessWidget {
+  const _SavedLancesPanel({
+    required this.library,
+    required this.lances,
+    required this.openLanceId,
+    required this.onOpen,
+    required this.onBack,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final AsyncValue<MechLibrary> library;
+  final AsyncValue<List<Lance>> lances;
+  final String? openLanceId;
+  final ValueChanged<Lance> onOpen;
+  final VoidCallback onBack;
+  final ValueChanged<Lance> onEdit;
+  final ValueChanged<Lance> onDelete;
+
+  static final _buttonShape = const RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(2)),
+  );
+  static const _buttonText = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 1.4,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = library.value;
+    final saved = lances.value;
+    if (library.hasError) {
+      return _Message(
+        title: 'Edit Lance',
+        body: 'Mech data did not load. ${library.error}',
+      );
+    }
+    if (lances.hasError) {
+      return _Message(
+        title: 'Edit Lance',
+        body: 'Saved lances could not be read. ${lances.error}',
+      );
+    }
+    if (lib == null || saved == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final open = saved.where((l) => l.id == openLanceId).firstOrNull;
+    if (open == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('EDIT LANCE', style: HudText.panelTitle),
+          const SizedBox(height: 8),
+          const Text(
+            'Choose a saved lance to see its roster.',
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: SavedLanceList(
+              lances: saved,
+              library: lib,
+              onSelect: onOpen,
+              emptyText: 'No saved lances yet. Choose New Lance to build one.',
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            TextButton.icon(
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('ALL LANCES', style: _buttonText),
+            ),
+            Wrap(
+              spacing: 12,
+              children: [
+                OutlinedButton(
+                  onPressed: () => onDelete(open),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(110, 44),
+                    shape: _buttonShape,
+                  ),
+                  child: const Text('DELETE', style: _buttonText),
+                ),
+                FilledButton(
+                  onPressed: () => onEdit(open),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(140, 44),
+                    shape: _buttonShape,
+                  ),
+                  child: const Text('EDIT LANCE', style: _buttonText),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: SingleChildScrollView(
+            child: LanceRosterDetail(lance: open, library: lib),
+          ),
+        ),
+      ],
     );
   }
 }

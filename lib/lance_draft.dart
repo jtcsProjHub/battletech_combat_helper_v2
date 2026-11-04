@@ -1,15 +1,13 @@
 // File: lib/lance_draft.dart
 // The editable form of a Lance that the builder screen works on. Lance stays
 // immutable; the draft swaps in a new Lance on each change and notifies
-// listeners. Totals are computed from MechLibrary, never stored.
-
-import 'dart:math' as math;
+// listeners. Totals come from LanceTotals and are never stored.
 
 import 'package:flutter/foundation.dart';
 
 import 'lance.dart';
+import 'lance_totals.dart';
 import 'mech_data.dart';
-import 'mech_labels.dart';
 import 'mech_library.dart';
 
 class LanceDraft extends ChangeNotifier {
@@ -21,23 +19,21 @@ class LanceDraft extends ChangeNotifier {
   Lance get lance => _lance;
   LanceParameters get parameters => _lance.parameters;
 
-  /// The mechs in slot order. Slots whose mech id is unknown are skipped.
-  List<Mech> get mechs => [
-    for (final slot in _lance.slots)
-      if (library.byId(slot.mechId) case final mech?) mech,
-  ];
+  /// Recomputed on each read; the lance changes on every edit.
+  LanceTotals get totals => LanceTotals(_lance, library);
 
-  int get usedBattleValue => mechs.fold(0, (sum, m) => sum + m.bv);
-  double get tonnage => mechs.fold(0.0, (sum, m) => sum + m.tonnage);
-  int get remainingBattleValue =>
-      parameters.targetBattleValue - usedBattleValue;
-  bool get isOverBudget => remainingBattleValue < 0;
-  int get openSlots => math.max(0, parameters.maxMechs - _lance.slots.length);
-  bool get isFull => openSlots == 0;
+  /// The mechs in slot order. Slots whose mech id is unknown are skipped.
+  List<Mech> get mechs => totals.mechs;
+
+  int get usedBattleValue => totals.usedBattleValue;
+  double get tonnage => totals.tonnage;
+  int get remainingBattleValue => totals.remainingBattleValue;
+  bool get isOverBudget => totals.isOverBudget;
+  int get openSlots => totals.openSlots;
+  bool get isFull => totals.isFull;
 
   /// Average BV left per open slot, or 0 when the lance is full.
-  int get battleValuePerOpenSlot =>
-      openSlots == 0 ? 0 : math.max(0, remainingBattleValue ~/ openSlots);
+  int get battleValuePerOpenSlot => totals.battleValuePerOpenSlot;
 
   bool contains(String mechId) =>
       _lance.slots.any((slot) => slot.mechId == mechId);

@@ -37,8 +37,14 @@ void main() {
     );
 
     test('finds weapons and ammo for each other', () {
-      expect(AmmoRules.weaponsForAmmo(mech, 'AMS').single.type, 'Anti-Missile System');
-      expect(AmmoRules.ammoNamesForWeapon(mech, mech.weapons[0]), ['LB 10-X', 'LB 10-X Cluster']);
+      expect(
+        AmmoRules.weaponsForAmmo(mech, 'AMS').single.type,
+        'Anti-Missile System',
+      );
+      expect(AmmoRules.ammoNamesForWeapon(mech, mech.weapons[0]), [
+        'LB 10-X',
+        'LB 10-X Cluster',
+      ]);
       expect(AmmoRules.ammoNamesForWeapon(mech, mech.weapons[2]), isEmpty);
     });
 

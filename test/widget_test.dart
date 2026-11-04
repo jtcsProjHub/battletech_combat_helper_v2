@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:battletech_combat_helper_v2/lance_repository.dart';
 import 'package:battletech_combat_helper_v2/main.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
@@ -13,6 +14,7 @@ void main() {
     WidgetTester tester, {
     List<Mech> mechs = const [],
     Size size = const Size(1280, 800),
+    LanceRepository? lances,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -22,6 +24,9 @@ void main() {
         // The real provider parses the bundled asset on an isolate, which doesn't work under the test clock.
         overrides: [
           mechLibraryProvider.overrideWith((ref) => MechLibrary(mechs)),
+          lanceRepositoryProvider.overrideWithValue(
+            lances ?? MemoryLanceRepository(),
+          ),
         ],
         child: const MyApp(),
       ),
@@ -188,5 +193,45 @@ void main() {
     await tester.tap(find.text('CANCEL'));
     await tester.pumpAndSettle();
     expect(find.text('TACTICAL MAP'), findsOneWidget);
+  });
+
+  testWidgets('Save writes the lance, and Edit Lance opens and deletes it', (
+    tester,
+  ) async {
+    final repo = MemoryLanceRepository();
+    await pumpApp(tester, size: const Size(1440, 1000), lances: repo);
+    await tester.tap(find.text('CREATE / EDIT LANCE PRECONS').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('EDIT LANCE'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No saved lances yet'), findsOneWidget);
+
+    await tester.tap(find.text('NEW LANCE'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Lance name *'),
+      'Alpha Lance',
+    );
+    await tester.tap(find.text('CREATE LANCE'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SAVE LANCE'));
+    await tester.pumpAndSettle();
+    expect(find.text('LANCE SAVED'), findsOneWidget);
+    expect((await repo.loadAll()).single.name, 'Alpha Lance');
+
+    await tester.tap(find.text('EDIT LANCE'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ALPHA LANCE'));
+    await tester.pumpAndSettle();
+    expect(find.text('LANCE ROSTER'), findsOneWidget);
+    expect(find.text('0 of 4 slots filled'), findsOneWidget);
+
+    await tester.tap(find.text('DELETE'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'DELETE'));
+    await tester.pumpAndSettle();
+    expect(await repo.loadAll(), isEmpty);
+    expect(find.textContaining('No saved lances yet'), findsOneWidget);
   });
 }

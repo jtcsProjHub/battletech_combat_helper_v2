@@ -10,26 +10,32 @@ class AppColors {
   static const panelActive = Color(0xFF1E242B);
   static const border = Color(0xFF2A3139);
   static const borderStrong = Color(0xFF3A434C);
+  static const cellBorder = Color(0xFF262D34);
+  static const chipBorder = Color(0xFF2F373F);
   static const text = Color(0xFFE8EAEC);
   static const textSecondary = Color(0xFFC4CAD0);
   static const textDim = Color(0xFF9AA3AB);
   static const iconDim = Color(0xFF5C6670);
   static const accent = Color(0xFFF28A1E);
   static const danger = Color(0xFFE0503F);
+
+  /// Battle value over the lance target.
+  static const overBudget = Color(0xFFFF7A6A);
 }
 
 ThemeData buildAppTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.accent,
-    brightness: Brightness.dark,
-  ).copyWith(
-    primary: AppColors.accent,
-    onPrimary: AppColors.background,
-    surface: AppColors.background,
-    onSurface: AppColors.text,
-    error: AppColors.danger,
-    outline: AppColors.border,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: AppColors.accent,
+        brightness: Brightness.dark,
+      ).copyWith(
+        primary: AppColors.accent,
+        onPrimary: AppColors.background,
+        surface: AppColors.background,
+        onSurface: AppColors.text,
+        error: AppColors.danger,
+        outline: AppColors.border,
+      );
 
   return ThemeData(
     useMaterial3: true,

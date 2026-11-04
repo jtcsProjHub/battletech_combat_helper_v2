@@ -14,9 +14,9 @@ class AppRoutes {
   static const loadSkirmish = '/skirmish/load';
 
   static Map<String, WidgetBuilder> get table => {
-        mainMenu: (_) => const MainMenuScreen(),
-        lanceBuilder: (_) => const LanceBuilderScreen(),
-        newSkirmish: (_) => const PlaceholderScreen(title: 'New Skirmish'),
-        loadSkirmish: (_) => const PlaceholderScreen(title: 'Load Skirmish'),
-      };
+    mainMenu: (_) => const MainMenuScreen(),
+    lanceBuilder: (_) => const LanceBuilderScreen(),
+    newSkirmish: (_) => const PlaceholderScreen(title: 'New Skirmish'),
+    loadSkirmish: (_) => const PlaceholderScreen(title: 'Load Skirmish'),
+  };
 }

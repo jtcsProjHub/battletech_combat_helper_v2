@@ -454,15 +454,6 @@ class _StatTiles extends StatelessWidget {
   );
 }
 
-/// Weapons grouped by type: total quantity and every location they mount in.
-class _WeaponLine {
-  _WeaponLine(this.weapon);
-
-  final Weapon weapon;
-  int quantity = 0;
-  final List<String> locations = [];
-}
-
 class _WeaponsTable extends StatelessWidget {
   const _WeaponsTable({required this.mech});
 
@@ -486,16 +477,6 @@ class _WeaponsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lines = <String, _WeaponLine>{};
-    for (final w in mech.weapons) {
-      final line = lines.putIfAbsent(w.type, () => _WeaponLine(w));
-      line.quantity += w.quantity ?? 1;
-      final loc = w.location;
-      if (loc != null && loc.isNotEmpty && !line.locations.contains(loc)) {
-        line.locations.add(loc);
-      }
-    }
-
     const head = TextStyle(fontSize: 11, color: AppColors.textDim);
     const cell = TextStyle(fontSize: 12, color: AppColors.text);
     TableRow row(List<String> cells, {required bool header, Color? bg}) =>
@@ -517,7 +498,7 @@ class _WeaponsTable extends StatelessWidget {
           ],
         );
 
-    final values = lines.values.toList();
+    final values = mech.weaponGroups;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

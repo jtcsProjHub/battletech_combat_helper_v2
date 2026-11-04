@@ -10,8 +10,21 @@ import 'era.dart';
 import 'location.dart';
 
 enum TechBase { unknown, innerSphere, clan, mixed, pirate }
+
 enum HeatSinkType { unknown, single, dbl }
-enum Role { unknown, ambusher, brawler, juggernaut, missileBoat, scout, skirmisher, sniper, striker }
+
+enum Role {
+  unknown,
+  ambusher,
+  brawler,
+  juggernaut,
+  missileBoat,
+  scout,
+  skirmisher,
+  sniper,
+  striker,
+}
+
 enum WeightClass { unknown, light, medium, heavy, assault }
 
 typedef HeatSinks = ({HeatSinkType type, int count});
@@ -24,14 +37,17 @@ class Mech {
   final String id;
   final String name;
   final String variant;
-  final String mulSlug; // key of this variant in the Master Unit List data; the id keeps the datasheet naming
+  final String
+  mulSlug; // key of this variant in the Master Unit List data; the id keeps the datasheet naming
   final TechBase techBase;
   final double tonnage;
   final int introYear; // e.g. 3025, 3075
   final String introEra; // e.g. 'Star League'
-  final Map<Era, List<String>> availability; // factions that can field this variant in each era (MUL data)
+  final Map<Era, List<String>>
+  availability; // factions that can field this variant in each era (MUL data)
   final Role role;
-  final String engineType; // optional engine type (e.g. "Fusion", "XL Fusion", etc.)
+  final String
+  engineType; // optional engine type (e.g. "Fusion", "XL Fusion", etc.)
 
   // Movement (in hexes / facing conventions are up to caller)
   final int walk; // hexes
@@ -42,7 +58,8 @@ class Mech {
   final int armorTotal;
   final Map<Location, int> armorByLocation; // optional armor by location
   final int structureTotal; // total internal structure points
-  final Map<Location, int> structureByLocation; // optional structure by location
+  final Map<Location, int>
+  structureByLocation; // optional structure by location
   final HeatSinks heatSinks;
   final int maxHeat; // optional thermal limit (0 if not used)
 
@@ -151,9 +168,12 @@ class Mech {
     );
   }
 
-  int get totalWeaponHeat => weapons.fold(0, (s, w) => s + (w.heat ?? 0) * (w.quantity ?? 1));
-  double get totalWeaponTons => weapons.fold(0.0, (s, w) => s + (w.tons ?? 0) * (w.quantity ?? 1));
-  double get totalEquipmentTons => equipment.fold(0.0, (s, e) => s + (e.tons ?? 0));
+  int get totalWeaponHeat =>
+      weapons.fold(0, (s, w) => s + (w.heat ?? 0) * (w.quantity ?? 1));
+  double get totalWeaponTons =>
+      weapons.fold(0.0, (s, w) => s + (w.tons ?? 0) * (w.quantity ?? 1));
+  double get totalEquipmentTons =>
+      equipment.fold(0.0, (s, e) => s + (e.tons ?? 0));
   double get totalTonsUsed => totalWeaponTons + totalEquipmentTons;
   WeightClass get weightClass {
     if (tonnage <= 0) return WeightClass.unknown;
@@ -162,6 +182,7 @@ class Mech {
     if (tonnage <= 75) return WeightClass.heavy;
     return WeightClass.assault;
   }
+
   String get weightClassString {
     switch (weightClass) {
       case WeightClass.light:
@@ -176,6 +197,7 @@ class Mech {
         return 'Unknown';
     }
   }
+
   String get heatSinkTypeString {
     switch (heatSinks.type) {
       case HeatSinkType.single:
@@ -188,82 +210,102 @@ class Mech {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'variant': variant,
-        'mulSlug': mulSlug,
-        'techBase': techBase.index,
-        'tonnage': tonnage,
-        'introYear': introYear,
-        'introEra': introEra,
-        'availability': availability.map((era, factions) => MapEntry(era.label, factions)),
-        'weightClass': weightClass.index,
-        'role': role.index,
-        'engineType': engineType,
-        'walk': walk,
-        'run': run,
-        'jump': jump,
-        'armorTotal': armorTotal,
-        'armorByLocation': armorByLocation.map((loc, v) => MapEntry(loc.jsonKey, v)),
-        'structureTotal': structureTotal,
-        'structureByLocation': structureByLocation.map((loc, v) => MapEntry(loc.jsonKey, v)),
-        'heatSinkTypeAndNumber': [heatSinks.type.index, heatSinks.count],
-        'maxHeat': maxHeat,
-        'weapons': weapons.map((w) => w.toJson()).toList(),
-        'equipment': equipment.map((e) => e.toJson()).toList(),
-        'battleValue': battleValue,
-        'cost': cost,
-        'notes': notes,
-        'critTable': critTable?.map((loc, v) => MapEntry(loc.critKey, v)),
-        'ammo': ammo,
-      };
+    'id': id,
+    'name': name,
+    'variant': variant,
+    'mulSlug': mulSlug,
+    'techBase': techBase.index,
+    'tonnage': tonnage,
+    'introYear': introYear,
+    'introEra': introEra,
+    'availability': availability.map(
+      (era, factions) => MapEntry(era.label, factions),
+    ),
+    'weightClass': weightClass.index,
+    'role': role.index,
+    'engineType': engineType,
+    'walk': walk,
+    'run': run,
+    'jump': jump,
+    'armorTotal': armorTotal,
+    'armorByLocation': armorByLocation.map(
+      (loc, v) => MapEntry(loc.jsonKey, v),
+    ),
+    'structureTotal': structureTotal,
+    'structureByLocation': structureByLocation.map(
+      (loc, v) => MapEntry(loc.jsonKey, v),
+    ),
+    'heatSinkTypeAndNumber': [heatSinks.type.index, heatSinks.count],
+    'maxHeat': maxHeat,
+    'weapons': weapons.map((w) => w.toJson()).toList(),
+    'equipment': equipment.map((e) => e.toJson()).toList(),
+    'battleValue': battleValue,
+    'cost': cost,
+    'notes': notes,
+    'critTable': critTable?.map((loc, v) => MapEntry(loc.critKey, v)),
+    'ammo': ammo,
+  };
 
   factory Mech.fromJson(Map<String, dynamic> json) => Mech(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        variant: json['variant'] as String? ?? '',
-        mulSlug: json['mulSlug'] as String? ?? '',
-        techBase: _enumFromIndex(TechBase.values, json['techBase'], TechBase.unknown),
-        tonnage: (json['tonnage'] as num).toDouble(),
-        introYear: json['introYear'] as int? ?? 0,
-        introEra: json['introEra'] as String? ?? '',
-        availability: _availabilityFromJson(json['availability']),
-        role: _enumFromIndex(Role.values, json['role'], Role.unknown),
-        engineType: json['engineType'] as String? ?? '',
-        walk: json['walk'] as int? ?? 0,
-        run: json['run'] as int? ?? 0,
-        jump: json['jump'] as int? ?? 0,
-        armorTotal: json['armorTotal'] as int? ?? 0,
-        armorByLocation: (json['armorByLocation'] as Map<String, dynamic>?)
-                ?.map((key, value) => MapEntry(Location.fromJsonKey(key), value as int)) ??
-            const {},
-        structureTotal: json['structureTotal'] as int? ?? 0,
-        structureByLocation: (json['structureByLocation'] as Map<String, dynamic>?)
-                ?.map((key, value) => MapEntry(Location.fromJsonKey(key), value as int)) ??
-            const {},
-        heatSinks: _heatSinksFromJson(json['heatSinkTypeAndNumber']),
-        maxHeat: json['maxHeat'] as int? ?? 0,
-        weapons: (json['weapons'] as List<dynamic>?)
-                ?.map((m) => Weapon.fromJson(m as Map<String, dynamic>))
-                .toList() ??
-            [],
-        equipment: (json['equipment'] as List<dynamic>?)
-                ?.map((m) => Equipment.fromJson(m as Map<String, dynamic>))
-                .toList() ??
-            [],
-        battleValue: json['battleValue'] as int?,
-        cost: json['cost'] as int?,
-        notes: json['notes'] as String?,
-        critTable: (json['critTable'] as Map<String, dynamic>?)?.map(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    variant: json['variant'] as String? ?? '',
+    mulSlug: json['mulSlug'] as String? ?? '',
+    techBase: _enumFromIndex(
+      TechBase.values,
+      json['techBase'],
+      TechBase.unknown,
+    ),
+    tonnage: (json['tonnage'] as num).toDouble(),
+    introYear: json['introYear'] as int? ?? 0,
+    introEra: json['introEra'] as String? ?? '',
+    availability: _availabilityFromJson(json['availability']),
+    role: _enumFromIndex(Role.values, json['role'], Role.unknown),
+    engineType: json['engineType'] as String? ?? '',
+    walk: json['walk'] as int? ?? 0,
+    run: json['run'] as int? ?? 0,
+    jump: json['jump'] as int? ?? 0,
+    armorTotal: json['armorTotal'] as int? ?? 0,
+    armorByLocation:
+        (json['armorByLocation'] as Map<String, dynamic>?)?.map(
+          (key, value) => MapEntry(Location.fromJsonKey(key), value as int),
+        ) ??
+        const {},
+    structureTotal: json['structureTotal'] as int? ?? 0,
+    structureByLocation:
+        (json['structureByLocation'] as Map<String, dynamic>?)?.map(
+          (key, value) => MapEntry(Location.fromJsonKey(key), value as int),
+        ) ??
+        const {},
+    heatSinks: _heatSinksFromJson(json['heatSinkTypeAndNumber']),
+    maxHeat: json['maxHeat'] as int? ?? 0,
+    weapons:
+        (json['weapons'] as List<dynamic>?)
+            ?.map((m) => Weapon.fromJson(m as Map<String, dynamic>))
+            .toList() ??
+        [],
+    equipment:
+        (json['equipment'] as List<dynamic>?)
+            ?.map((m) => Equipment.fromJson(m as Map<String, dynamic>))
+            .toList() ??
+        [],
+    battleValue: json['battleValue'] as int?,
+    cost: json['cost'] as int?,
+    notes: json['notes'] as String?,
+    critTable:
+        (json['critTable'] as Map<String, dynamic>?)?.map(
           (key, value) => MapEntry(
             Location.fromCritKey(key),
             (value as List<dynamic>).map((e) => e.toString()).toList(),
           ),
-        ) ?? const {},
-        ammo: (json['ammo'] as Map<String, dynamic>?)?.map(
+        ) ??
+        const {},
+    ammo:
+        (json['ammo'] as Map<String, dynamic>?)?.map(
           (key, value) => MapEntry(key, value as int),
-        ) ?? const {}
-      );
+        ) ??
+        const {},
+  );
 
   // The era this variant was introduced in, or null when the data has none.
   Era? get era => Era.fromLabel(introEra);
@@ -274,7 +316,8 @@ class Mech {
     final result = <Era, List<String>>{};
     value.forEach((label, factions) {
       final era = Era.fromLabel(label as String);
-      if (era != null && factions is List) result[era] = factions.map((f) => f.toString()).toList();
+      if (era != null && factions is List)
+        result[era] = factions.map((f) => f.toString()).toList();
     });
     return result;
   }
@@ -283,7 +326,11 @@ class Mech {
   static HeatSinks _heatSinksFromJson(dynamic value) {
     if (value is List && value.length == 2) {
       return (
-        type: _enumFromIndex(HeatSinkType.values, value[0], HeatSinkType.unknown),
+        type: _enumFromIndex(
+          HeatSinkType.values,
+          value[0],
+          HeatSinkType.unknown,
+        ),
         count: (value[1] as num).toInt(),
       );
     }
@@ -303,7 +350,8 @@ class Weapon {
   final int? longRange;
   final double? tons;
   final String? location; // head, leftArm, rightTorso, etc.
-  final int? quantity; // how many of this weapon are mounted at this location (default 1)
+  final int?
+  quantity; // how many of this weapon are mounted at this location (default 1)
 
   const Weapon({
     required this.type,
@@ -321,34 +369,34 @@ class Weapon {
   });
 
   Map<String, dynamic> toJson() => {
-        'type': type,
-        'heat': heat,
-        'heatType': heatType,
-        'damage': damage,
-        'damageType': damageType,
-        'minRange': minRange,
-        'shortRange': shortRange,
-        'mediumRange': mediumRange,
-        'longRange': longRange,
-        'tons': tons,
-        'location': location,
-        'quantity': quantity,
-      };
+    'type': type,
+    'heat': heat,
+    'heatType': heatType,
+    'damage': damage,
+    'damageType': damageType,
+    'minRange': minRange,
+    'shortRange': shortRange,
+    'mediumRange': mediumRange,
+    'longRange': longRange,
+    'tons': tons,
+    'location': location,
+    'quantity': quantity,
+  };
 
   factory Weapon.fromJson(Map<String, dynamic> json) => Weapon(
-        type: json['type'] as String? ?? '',
-        heat: json['heat'] as int?,
-        heatType: json['heatType'] as int?,
-        damage: json['damage'] as int?,
-        damageType: json['damageType'] as int?,
-        minRange: json['minRange'] as int? ?? 0,
-        shortRange: json['shortRange'] as int?,
-        mediumRange: json['mediumRange'] as int?,
-        longRange: json['longRange'] as int?,
-        tons: (json['tons'] as num?)?.toDouble(),
-        location: json['location'] as String?,
-        quantity: json['quantity'] as int? ?? 1,
-      );
+    type: json['type'] as String? ?? '',
+    heat: json['heat'] as int?,
+    heatType: json['heatType'] as int?,
+    damage: json['damage'] as int?,
+    damageType: json['damageType'] as int?,
+    minRange: json['minRange'] as int? ?? 0,
+    shortRange: json['shortRange'] as int?,
+    mediumRange: json['mediumRange'] as int?,
+    longRange: json['longRange'] as int?,
+    tons: (json['tons'] as num?)?.toDouble(),
+    location: json['location'] as String?,
+    quantity: json['quantity'] as int? ?? 1,
+  );
 }
 
 class Equipment {
@@ -367,20 +415,20 @@ class Equipment {
   });
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'type': type,
-        'tons': tons,
-        'criticals': criticals,
-        'meta': meta,
-      };
+    'name': name,
+    'type': type,
+    'tons': tons,
+    'criticals': criticals,
+    'meta': meta,
+  };
 
   factory Equipment.fromJson(Map<String, dynamic> json) => Equipment(
-        name: json['name'] as String,
-        type: json['type'] as String? ?? '',
-        tons: (json['tons'] as num?)?.toDouble(),
-        criticals: json['criticals'] as int?,
-        meta: (json['meta'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
-      );
+    name: json['name'] as String,
+    type: json['type'] as String? ?? '',
+    tons: (json['tons'] as num?)?.toDouble(),
+    criticals: json['criticals'] as int?,
+    meta: (json['meta'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
+  );
 }
 
 List<Mech> mechsFromJsonString(String jsonString) {

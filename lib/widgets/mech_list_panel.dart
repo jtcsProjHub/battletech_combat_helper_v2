@@ -1,10 +1,10 @@
 // File: lib/widgets/mech_list_panel.dart
 // Searchable, filterable, sortable mech list for the Lance Builder. The era,
-// faction, and tech base filters start from the lance parameters. Sort,
-// filters, and visible columns live here; the selection lives in the screen.
+// faction, and tech base filters start from the lance parameters, and each
+// one's choices narrow to what the other two still allow. Sort, filters, and
+// visible columns live here; the selection lives in the screen.
 
 import 'dart:math' as math;
-import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
 
@@ -87,16 +87,6 @@ class _MechListPanelState extends State<MechListPanel> {
     });
   }
 
-  void _setEra(Era? era) {
-    setState(() {
-      _era = era;
-      if (_faction != null &&
-          !widget.library.factions(era: era).contains(_faction)) {
-        _faction = null;
-      }
-    });
-  }
-
   Future<void> _chooseColumns() async {
     final chosen = await showDialog<List<MechColumn>>(
       context: context,
@@ -105,13 +95,13 @@ class _MechListPanelState extends State<MechListPanel> {
     if (chosen != null) setState(() => _columns = chosen);
   }
 
-  List<Mech> _visibleMechs(String? faction) {
+  List<Mech> _visibleMechs(Era? era, String? faction, TechBase? techBase) {
     final list = filterMechs(
       widget.library.mechs,
       query: _query.text,
-      era: _era,
+      era: era,
       faction: faction,
-      techBase: _techBase,
+      techBase: techBase,
       weightClass: _weightClass,
     );
     final column = _sortColumn;
@@ -127,10 +117,16 @@ class _MechListPanelState extends State<MechListPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final factions = widget.library.factions(era: _era);
-    // A lance faction with no mechs in the chosen era cannot be selected.
+    final library = widget.library;
+    final eras = library.eras(faction: _faction, techBase: _techBase);
+    final factions = library.factions(era: _era, techBase: _techBase);
+    final techBases = library.techBases(era: _era, faction: _faction);
+    // Lance defaults that match no mechs alongside the other filters cannot be
+    // selected; they act as "any".
+    final era = eras.contains(_era) ? _era : null;
     final faction = factions.contains(_faction) ? _faction : null;
-    final mechs = _visibleMechs(faction);
+    final techBase = techBases.contains(_techBase) ? _techBase : null;
+    final mechs = _visibleMechs(era, faction, techBase);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -162,17 +158,17 @@ class _MechListPanelState extends State<MechListPanel> {
                   _FilterDropdown<Era?>(
                     label: 'Era',
                     width: 230,
-                    value: _era,
-                    isDefault: _era != null && _era == widget.defaults.era,
+                    value: era,
+                    isDefault: era != null && era == widget.defaults.era,
                     items: [
                       const DropdownMenuItem(
                         value: null,
                         child: Text('Any era'),
                       ),
-                      for (final e in widget.library.eras())
+                      for (final e in eras)
                         DropdownMenuItem(value: e, child: Text(e.label)),
                     ],
-                    onChanged: _setEra,
+                    onChanged: (e) => setState(() => _era = e),
                   ),
                   _FilterDropdown<String?>(
                     label: 'Faction',
@@ -193,10 +189,10 @@ class _MechListPanelState extends State<MechListPanel> {
                   _FilterDropdown<TechBase?>(
                     label: 'Tech',
                     width: 150,
-                    value: _techBase,
+                    value: techBase,
                     isDefault:
-                        _techBase != null &&
-                        _techBase == widget.defaults.techBase,
+                        techBase != null &&
+                        techBase == widget.defaults.techBase,
                     items: [
                       const DropdownMenuItem(
                         value: null,
@@ -207,7 +203,8 @@ class _MechListPanelState extends State<MechListPanel> {
                         TechBase.clan,
                         TechBase.mixed,
                       ])
-                        DropdownMenuItem(value: t, child: Text(t.label)),
+                        if (techBases.contains(t))
+                          DropdownMenuItem(value: t, child: Text(t.label)),
                     ],
                     onChanged: (t) => setState(() => _techBase = t),
                   ),

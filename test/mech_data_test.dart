@@ -29,23 +29,60 @@ final fullMech = Mech(
   heatSinks: (type: HeatSinkType.single, count: 13),
   maxHeat: 13,
   weapons: const [
-    Weapon(type: 'AC/20', heat: 7, damage: 20, shortRange: 3, mediumRange: 6, longRange: 9, tons: 14, location: 'RT'),
-    Weapon(type: 'Medium Laser', heat: 3, damage: 5, shortRange: 3, mediumRange: 6, longRange: 9, tons: 1, location: 'LA'),
-    Weapon(type: 'Small Laser', heat: 1, damage: 3, shortRange: 1, mediumRange: 2, longRange: 3, tons: 0.5, location: 'HD'),
+    Weapon(
+      type: 'AC/20',
+      heat: 7,
+      damage: 20,
+      shortRange: 3,
+      mediumRange: 6,
+      longRange: 9,
+      tons: 14,
+      location: 'RT',
+    ),
+    Weapon(
+      type: 'Medium Laser',
+      heat: 3,
+      damage: 5,
+      shortRange: 3,
+      mediumRange: 6,
+      longRange: 9,
+      tons: 1,
+      location: 'LA',
+    ),
+    Weapon(
+      type: 'Small Laser',
+      heat: 1,
+      damage: 3,
+      shortRange: 1,
+      mediumRange: 2,
+      longRange: 3,
+      tons: 0.5,
+      location: 'HD',
+    ),
   ],
   equipment: const [
-    Equipment(name: 'CASE', type: 'CASE', tons: 0.5, criticals: 1, meta: {'location': 'RT'}),
+    Equipment(
+      name: 'CASE',
+      type: 'CASE',
+      tons: 0.5,
+      criticals: 1,
+      meta: {'location': 'RT'},
+    ),
   ],
   battleValue: 1041,
   cost: 3467920,
   notes: 'Classic urban brawler',
-  critTable: {Location.head: ['Life Support', 'Sensors', 'Cockpit']},
+  critTable: {
+    Location.head: ['Life Support', 'Sensors', 'Cockpit'],
+  },
   ammo: const {'AC/20': 10},
 );
 
-Mech minimalMech({double tonnage = 20}) => Mech(id: 'x', name: 'Test', tonnage: tonnage);
+Mech minimalMech({double tonnage = 20}) =>
+    Mech(id: 'x', name: 'Test', tonnage: tonnage);
 
-Mech roundTrip(Mech m) => Mech.fromJson(jsonDecode(jsonEncode(m.toJson())) as Map<String, dynamic>);
+Mech roundTrip(Mech m) =>
+    Mech.fromJson(jsonDecode(jsonEncode(m.toJson())) as Map<String, dynamic>);
 
 void main() {
   group('JSON round trip', () {
@@ -58,11 +95,17 @@ void main() {
     });
 
     test('heat sinks are written as [typeIndex, count]', () {
-      expect(fullMech.toJson()['heatSinkTypeAndNumber'], [HeatSinkType.single.index, 13]);
+      expect(fullMech.toJson()['heatSinkTypeAndNumber'], [
+        HeatSinkType.single.index,
+        13,
+      ]);
     });
 
     test('heat sink record keeps value equality after a round trip', () {
-      expect(roundTrip(fullMech).heatSinks, (type: HeatSinkType.single, count: 13));
+      expect(roundTrip(fullMech).heatSinks, (
+        type: HeatSinkType.single,
+        count: 13,
+      ));
     });
   });
 
@@ -86,9 +129,18 @@ void main() {
     });
 
     test('throw when a required field is missing', () {
-      expect(() => Mech.fromJson({'name': 'Test', 'tonnage': 20}), throwsA(isA<TypeError>()));
-      expect(() => Mech.fromJson({'id': 'x', 'tonnage': 20}), throwsA(isA<TypeError>()));
-      expect(() => Mech.fromJson({'id': 'x', 'name': 'Test'}), throwsA(isA<TypeError>()));
+      expect(
+        () => Mech.fromJson({'name': 'Test', 'tonnage': 20}),
+        throwsA(isA<TypeError>()),
+      );
+      expect(
+        () => Mech.fromJson({'id': 'x', 'tonnage': 20}),
+        throwsA(isA<TypeError>()),
+      );
+      expect(
+        () => Mech.fromJson({'id': 'x', 'name': 'Test'}),
+        throwsA(isA<TypeError>()),
+      );
     });
   });
 
@@ -100,8 +152,12 @@ void main() {
 
     test('reads valid enum indexes', () {
       final m = Mech.fromJson({
-        'id': 'x', 'name': 'Test', 'tonnage': 20,
-        'techBase': 2, 'role': 4, 'heatSinkTypeAndNumber': [2, 10],
+        'id': 'x',
+        'name': 'Test',
+        'tonnage': 20,
+        'techBase': 2,
+        'role': 4,
+        'heatSinkTypeAndNumber': [2, 10],
       });
       expect(m.techBase, TechBase.clan);
       expect(m.role, Role.missileBoat);
@@ -110,8 +166,12 @@ void main() {
 
     test('falls back to unknown for out-of-range enum indexes', () {
       final m = Mech.fromJson({
-        'id': 'x', 'name': 'Test', 'tonnage': 20,
-        'techBase': 99, 'role': -1, 'heatSinkTypeAndNumber': [7, 10],
+        'id': 'x',
+        'name': 'Test',
+        'tonnage': 20,
+        'techBase': 99,
+        'role': -1,
+        'heatSinkTypeAndNumber': [7, 10],
       });
       expect(m.techBase, TechBase.unknown);
       expect(m.role, Role.unknown);
@@ -120,26 +180,46 @@ void main() {
     });
 
     test('falls back to unknown for non-integer enum values', () {
-      final m = Mech.fromJson({'id': 'x', 'name': 'Test', 'tonnage': 20, 'techBase': 'clan', 'role': 'scout'});
+      final m = Mech.fromJson({
+        'id': 'x',
+        'name': 'Test',
+        'tonnage': 20,
+        'techBase': 'clan',
+        'role': 'scout',
+      });
       expect(m.techBase, TechBase.unknown);
       expect(m.role, Role.unknown);
     });
 
     test('ignores a heat sink list of the wrong length', () {
-      final m = Mech.fromJson({'id': 'x', 'name': 'Test', 'tonnage': 20, 'heatSinkTypeAndNumber': [2]});
+      final m = Mech.fromJson({
+        'id': 'x',
+        'name': 'Test',
+        'tonnage': 20,
+        'heatSinkTypeAndNumber': [2],
+      });
       expect(m.heatSinks, (type: HeatSinkType.unknown, count: 0));
     });
 
     test('converts crit table entries to strings', () {
       final m = Mech.fromJson({
-        'id': 'x', 'name': 'Test', 'tonnage': 20,
-        'critTable': {'crit_left_arm': ['Shoulder', 1, null]},
+        'id': 'x',
+        'name': 'Test',
+        'tonnage': 20,
+        'critTable': {
+          'crit_left_arm': ['Shoulder', 1, null],
+        },
       });
       expect(m.critTable![Location.leftArm], ['Shoulder', '1', 'null']);
     });
 
     test('ignores the derived weightClass key', () {
-      final m = Mech.fromJson({'id': 'x', 'name': 'Test', 'tonnage': 100, 'weightClass': WeightClass.light.index});
+      final m = Mech.fromJson({
+        'id': 'x',
+        'name': 'Test',
+        'tonnage': 100,
+        'weightClass': WeightClass.light.index,
+      });
       expect(m.weightClass, WeightClass.assault);
     });
   });
@@ -175,7 +255,9 @@ void main() {
 
   group('heatSinkTypeString', () {
     test('names each heat sink type', () {
-      String label(HeatSinkType t) => minimalMech().copyWith(heatSinks: (type: t, count: 10)).heatSinkTypeString;
+      String label(HeatSinkType t) => minimalMech()
+          .copyWith(heatSinks: (type: t, count: 10))
+          .heatSinkTypeString;
       expect(label(HeatSinkType.single), 'Single');
       expect(label(HeatSinkType.dbl), 'Double');
       expect(label(HeatSinkType.unknown), 'Unknown');
@@ -200,7 +282,10 @@ void main() {
 
     test('treat null heat and tons as zero', () {
       final m = minimalMech().copyWith(
-        weapons: const [Weapon(type: 'Active Probe'), Weapon(type: 'Medium Laser', heat: 3, tons: 1)],
+        weapons: const [
+          Weapon(type: 'Active Probe'),
+          Weapon(type: 'Medium Laser', heat: 3, tons: 1),
+        ],
         equipment: const [Equipment(name: 'Gyro')],
       );
       expect(m.totalWeaponHeat, 3);
@@ -221,7 +306,9 @@ void main() {
 
     test('treat a null quantity as one', () {
       final m = minimalMech().copyWith(
-        weapons: const [Weapon(type: 'Medium Laser', heat: 3, tons: 1, quantity: null)],
+        weapons: const [
+          Weapon(type: 'Medium Laser', heat: 3, tons: 1, quantity: null),
+        ],
       );
       expect(m.totalWeaponHeat, 3);
       expect(m.totalWeaponTons, 1.0);
@@ -242,7 +329,9 @@ void main() {
     });
 
     test('replaces the heat sink record', () {
-      final changed = fullMech.copyWith(heatSinks: (type: HeatSinkType.dbl, count: 10));
+      final changed = fullMech.copyWith(
+        heatSinks: (type: HeatSinkType.dbl, count: 10),
+      );
       expect(changed.heatSinks, (type: HeatSinkType.dbl, count: 10));
     });
 
@@ -256,11 +345,22 @@ void main() {
   group('Weapon', () {
     test('round trips through JSON', () {
       const w = Weapon(
-        type: 'LRM 10', heat: 4, heatType: 0, damage: 1, damageType: 2,
-        minRange: 6, shortRange: 7, mediumRange: 14, longRange: 21,
-        tons: 5, location: 'LT', quantity: 2,
+        type: 'LRM 10',
+        heat: 4,
+        heatType: 0,
+        damage: 1,
+        damageType: 2,
+        minRange: 6,
+        shortRange: 7,
+        mediumRange: 14,
+        longRange: 21,
+        tons: 5,
+        location: 'LT',
+        quantity: 2,
       );
-      final back = Weapon.fromJson(jsonDecode(jsonEncode(w.toJson())) as Map<String, dynamic>);
+      final back = Weapon.fromJson(
+        jsonDecode(jsonEncode(w.toJson())) as Map<String, dynamic>,
+      );
       expect(back.toJson(), w.toJson());
     });
 
@@ -274,7 +374,11 @@ void main() {
     });
 
     test('treats explicit null minRange and quantity as defaults', () {
-      final w = Weapon.fromJson({'type': 'Active Probe', 'minRange': null, 'quantity': null});
+      final w = Weapon.fromJson({
+        'type': 'Active Probe',
+        'minRange': null,
+        'quantity': null,
+      });
       expect(w.minRange, 0);
       expect(w.quantity, 1);
     });
@@ -288,10 +392,19 @@ void main() {
   group('Equipment', () {
     test('round trips through JSON, including nested meta', () {
       const e = Equipment(
-        name: 'Jump Jet', type: 'jumpJet', tons: 0.5, criticals: 1,
-        meta: {'location': 'LL', 'tags': ['improved'], 'rating': {'mp': 1}},
+        name: 'Jump Jet',
+        type: 'jumpJet',
+        tons: 0.5,
+        criticals: 1,
+        meta: {
+          'location': 'LL',
+          'tags': ['improved'],
+          'rating': {'mp': 1},
+        },
       );
-      final back = Equipment.fromJson(jsonDecode(jsonEncode(e.toJson())) as Map<String, dynamic>);
+      final back = Equipment.fromJson(
+        jsonDecode(jsonEncode(e.toJson())) as Map<String, dynamic>,
+      );
       expect(back.toJson(), e.toJson());
     });
 
@@ -314,7 +427,10 @@ void main() {
     });
 
     test('throws when the top level is not an array', () {
-      expect(() => mechsFromJsonString('{"id": "x"}'), throwsA(isA<TypeError>()));
+      expect(
+        () => mechsFromJsonString('{"id": "x"}'),
+        throwsA(isA<TypeError>()),
+      );
     });
 
     test('throws on malformed JSON', () {
@@ -325,11 +441,16 @@ void main() {
       late List<Mech> mechs;
 
       setUpAll(() {
-        mechs = mechsFromJsonString(File('test/fixtures/mechs_sample.json').readAsStringSync());
+        mechs = mechsFromJsonString(
+          File('test/fixtures/mechs_sample.json').readAsStringSync(),
+        );
       });
 
       test('parses every mech', () {
-        expect(mechs.map((m) => m.id), ['koshi_mist_lynx_prime', 'atlas_as7_d']);
+        expect(mechs.map((m) => m.id), [
+          'koshi_mist_lynx_prime',
+          'atlas_as7_d',
+        ]);
       });
 
       test('has unique ids', () {
@@ -371,7 +492,9 @@ void main() {
   group('loaders', () {
     late Directory tempDir;
 
-    setUp(() => tempDir = Directory.systemTemp.createTempSync('mech_data_test'));
+    setUp(
+      () => tempDir = Directory.systemTemp.createTempSync('mech_data_test'),
+    );
     tearDown(() => tempDir.deleteSync(recursive: true));
 
     test('loadMechsFromFile reads mechs from disk', () async {
@@ -382,16 +505,24 @@ void main() {
     });
 
     test('loadMechsFromFile throws when the file is missing', () {
-      expect(loadMechsFromFile('${tempDir.path}/missing.json'), throwsA(isA<FileSystemException>()));
+      expect(
+        loadMechsFromFile('${tempDir.path}/missing.json'),
+        throwsA(isA<FileSystemException>()),
+      );
     });
 
     test('loadMechsFromAsset reads mechs from the asset bundle', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
       final payload = utf8.encode(jsonEncode([fullMech.toJson()]));
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMessageHandler('flutter/assets', (_) async => ByteData.sublistView(payload));
-      addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMessageHandler('flutter/assets', null));
+          .setMockMessageHandler(
+            'flutter/assets',
+            (_) async => ByteData.sublistView(payload),
+          );
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMessageHandler('flutter/assets', null),
+      );
 
       final mechs = await loadMechsFromAsset('assets/test_mechs.json');
       expect(mechs.single.toJson(), fullMech.toJson());
