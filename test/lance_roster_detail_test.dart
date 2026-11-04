@@ -5,6 +5,7 @@ import 'package:battletech_combat_helper_v2/app_theme.dart';
 import 'package:battletech_combat_helper_v2/lance.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
+import 'package:battletech_combat_helper_v2/pilot_data.dart';
 import 'package:battletech_combat_helper_v2/widgets/lance_roster_detail.dart';
 
 // The example lance from docs/design/lance_roster_detail.md.
@@ -52,6 +53,7 @@ Lance _lance({
   List<String> mechIds = const ['thunderbolt_tdr_5s', 'wolverine_wvr_6r'],
   int target = 5000,
   int maxMechs = 4,
+  Map<String, Pilot> pilots = const {},
 }) => Lance(
   id: 'alpha',
   name: 'Alpha Lance',
@@ -60,7 +62,10 @@ Lance _lance({
     maxMechs: maxMechs,
     techBase: TechBase.innerSphere,
   ),
-  slots: [for (final id in mechIds) LanceSlot(mechId: id)],
+  slots: [
+    for (final id in mechIds)
+      LanceSlot(mechId: id, pilot: pilots[id] ?? const Pilot()),
+  ],
 );
 
 Future<void> _pump(WidgetTester tester, LanceRosterDetail detail) async {
@@ -192,5 +197,51 @@ void main() {
       find.text('Lance is full. 2,564 BV left under the target.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('cards show the assigned pilot, or no pilot at the standard '
+      'skills', (tester) async {
+    await _pump(
+      tester,
+      LanceRosterDetail(
+        lance: _lance(
+          pilots: {
+            'thunderbolt_tdr_5s': const Pilot(
+              name: 'Trixie Cottonwood',
+              gunnery: 3,
+              piloting: 4,
+            ),
+          },
+        ),
+        library: _library,
+      ),
+    );
+
+    expect(find.text('Trixie Cottonwood'), findsOneWidget);
+    expect(find.byTooltip('Gunnery 3'), findsOneWidget);
+    expect(find.byTooltip('Piloting 4'), findsOneWidget);
+    expect(find.text('No pilot'), findsOneWidget);
+    expect(find.byTooltip('Gunnery 4'), findsOneWidget);
+    // Read-only: nothing to tap.
+    expect(find.text('PILOT'), findsNothing);
+    expect(find.byTooltip('Edit pilot'), findsNothing);
+  });
+
+  testWidgets('editable cards call onEditPilot with the mech id', (
+    tester,
+  ) async {
+    final edited = <String>[];
+    await _pump(
+      tester,
+      LanceRosterDetail(
+        lance: _lance(),
+        library: _library,
+        editable: true,
+        onEditPilot: edited.add,
+      ),
+    );
+
+    await tester.tap(find.text('PILOT').last);
+    expect(edited, ['wolverine_wvr_6r']);
   });
 }

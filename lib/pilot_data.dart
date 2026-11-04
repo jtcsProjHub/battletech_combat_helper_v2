@@ -11,7 +11,23 @@ class Pilot {
   final int gunnery;
   final int piloting;
 
-  const Pilot({this.name = '', this.gunnery = 4, this.piloting = 5});
+  const Pilot({
+    this.name = '',
+    this.gunnery = defaultGunnery,
+    this.piloting = defaultPiloting,
+  });
+
+  /// Classic BattleTech's standard pilot.
+  static const defaultGunnery = 4;
+  static const defaultPiloting = 5;
+
+  /// Skills run from 0 (best) to 8.
+  static const minSkill = 0;
+  static const maxSkill = 8;
+
+  /// An unnamed pilot with the standard skills, which means no pilot has
+  /// been assigned. The mech still plays at the standard skills.
+  bool get isDefault => this == const Pilot();
 
   Pilot copyWith({String? name, int? gunnery, int? piloting}) => Pilot(
     name: name ?? this.name,
@@ -27,8 +43,8 @@ class Pilot {
 
   factory Pilot.fromJson(Map<String, dynamic> json) => Pilot(
     name: json['name'] as String? ?? '',
-    gunnery: (json['gunnery'] as num?)?.toInt() ?? 4,
-    piloting: (json['piloting'] as num?)?.toInt() ?? 5,
+    gunnery: (json['gunnery'] as num?)?.toInt() ?? defaultGunnery,
+    piloting: (json['piloting'] as num?)?.toInt() ?? defaultPiloting,
   );
 
   @override

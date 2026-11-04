@@ -1,7 +1,7 @@
 // File: lib/widgets/lance_roster_detail.dart
 // One lance in full detail: a header with the filters and totals, then a
-// large card per mech. Read-only by default; editable mode adds remove
-// buttons and the open slots. Used by Edit Lance and New Skirmish. The
+// large card per mech with its pilot. Read-only by default; editable mode
+// adds remove buttons, pilot editing, and the open slots. Used by Edit Lance and New Skirmish. The
 // builder keeps its compact LanceRosterPanel.
 
 import 'package:flutter/material.dart';
@@ -12,8 +12,10 @@ import '../lance_totals.dart';
 import '../mech_data.dart';
 import '../mech_labels.dart';
 import '../mech_library.dart';
+import '../pilot_data.dart';
 import 'hud.dart';
 import 'mech_thumbnail.dart';
+import 'pilot_widgets.dart';
 
 /// Sizes to its content, so put it in a scroll view when the parent has a
 /// fixed height.
@@ -24,6 +26,7 @@ class LanceRosterDetail extends StatelessWidget {
     required this.library,
     this.editable = false,
     this.onRemove,
+    this.onEditPilot,
     this.onSelect,
   });
 
@@ -34,6 +37,10 @@ class LanceRosterDetail extends StatelessWidget {
   /// Called with the mech id. Used only when [editable].
   final ValueChanged<String>? onRemove;
 
+  /// Called with the mech id when its pilot row is tapped. Used only when
+  /// [editable].
+  final ValueChanged<String>? onEditPilot;
+
   /// Called when a card is tapped, for example to show a preview.
   final ValueChanged<Mech>? onSelect;
 
@@ -41,6 +48,7 @@ class LanceRosterDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     final totals = LanceTotals(lance, library);
     final remove = editable ? onRemove : null;
+    final editPilot = editable ? onEditPilot : null;
     final select = onSelect;
 
     return Column(
@@ -51,13 +59,15 @@ class LanceRosterDetail extends StatelessWidget {
         const SizedBox(height: 20),
         const Text('SELECTED', style: HudText.sectionLabel),
         const SizedBox(height: 10),
-        if (totals.mechs.isEmpty)
+        if (totals.entries.isEmpty)
           const _Note('No mechs in this lance yet.')
         else
-          for (final m in totals.mechs) ...[
+          for (final (mech: m, :pilot) in totals.entries) ...[
             _MechCard(
               mech: m,
+              pilot: pilot,
               onRemove: remove == null ? null : () => remove(m.id),
+              onEditPilot: editPilot == null ? null : () => editPilot(m.id),
               onTap: select == null ? null : () => select(m),
             ),
             const SizedBox(height: 10),
@@ -242,10 +252,18 @@ class _StatBox extends StatelessWidget {
 }
 
 class _MechCard extends StatelessWidget {
-  const _MechCard({required this.mech, this.onRemove, this.onTap});
+  const _MechCard({
+    required this.mech,
+    required this.pilot,
+    this.onRemove,
+    this.onEditPilot,
+    this.onTap,
+  });
 
   final Mech mech;
+  final Pilot pilot;
   final VoidCallback? onRemove;
+  final VoidCallback? onEditPilot;
   final VoidCallback? onTap;
 
   @override
@@ -410,6 +428,9 @@ class _MechCard extends StatelessWidget {
                               ],
                             ),
                           ],
+                          const Spacer(),
+                          const Divider(height: 20),
+                          PilotRow(pilot: pilot, onEdit: onEditPilot),
                         ],
                       ),
                     ),

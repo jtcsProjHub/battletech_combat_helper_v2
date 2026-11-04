@@ -8,16 +8,25 @@ import 'lance.dart';
 import 'mech_data.dart';
 import 'mech_labels.dart';
 import 'mech_library.dart';
+import 'pilot_data.dart';
 
 class LanceTotals {
   LanceTotals(this.lance, this.library)
-    : mechs = [for (final slot in lance.slots) ?library.byId(slot.mechId)];
+    : entries = [
+        for (final slot in lance.slots)
+          if (library.byId(slot.mechId) case final mech?)
+            (mech: mech, pilot: slot.pilot),
+      ];
 
   final Lance lance;
   final MechLibrary library;
 
+  /// Each mech with its pilot, in slot order. Slots whose mech id is unknown
+  /// are skipped.
+  final List<({Mech mech, Pilot pilot})> entries;
+
   /// The mechs in slot order. Slots whose mech id is unknown are skipped.
-  final List<Mech> mechs;
+  List<Mech> get mechs => [for (final e in entries) e.mech];
 
   LanceParameters get parameters => lance.parameters;
 

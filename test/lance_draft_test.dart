@@ -7,6 +7,7 @@ import 'package:battletech_combat_helper_v2/lance_draft.dart';
 import 'package:battletech_combat_helper_v2/mech_columns.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
+import 'package:battletech_combat_helper_v2/pilot_data.dart';
 import 'package:battletech_combat_helper_v2/screens/lance_editor_screen.dart';
 
 Mech _mech(
@@ -153,6 +154,19 @@ void main() {
     });
   });
 
+  test('setPilot changes only the matching slot', () {
+    final d = LanceDraft(Lance.create(name: 'Alpha'), library)
+      ..add(library.byId('thunderbolt')!)
+      ..add(library.byId('wolverine')!);
+    const trixie = Pilot(name: 'Trixie Cottonwood', gunnery: 3, piloting: 4);
+
+    d.setPilot('wolverine', trixie);
+    d.setPilot('archer', trixie); // not in the lance: ignored
+
+    expect(d.lance.slots.map((s) => s.pilot), [const Pilot(), trixie]);
+    expect(d.totals.entries.last.pilot, trixie);
+  });
+
   test('MechColumn text and sort values', () {
     final tb = library.byId('thunderbolt')!;
     expect(MechColumn.battleValue.text(tb), '1335');
@@ -232,5 +246,62 @@ void main() {
         await tester.pumpAndSettle();
       }
     }
+  });
+
+  testWidgets('Builder assigns, edits, and removes a pilot', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LanceEditorScreen(
+          lance: Lance.create(name: 'Alpha'),
+          library: library,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('archer').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ADD TO LANCE'));
+    await tester.pumpAndSettle();
+
+    // No pilot yet: the card offers one and shows the standard skills.
+    expect(find.byTooltip('Gunnery 4'), findsOneWidget);
+    expect(find.byTooltip('Piloting 5'), findsOneWidget);
+    await tester.tap(find.text('PILOT'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      'Trixie Cottonwood',
+    );
+    await tester.tap(find.byTooltip('Lower Gunnery'));
+    await tester.tap(find.byTooltip('Lower Piloting'));
+    await tester.pump();
+    await tester.tap(find.text('SAVE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Trixie Cottonwood'), findsOneWidget);
+    expect(find.byTooltip('Gunnery 3'), findsOneWidget);
+    expect(find.byTooltip('Piloting 4'), findsOneWidget);
+
+    // Cancel keeps the pilot; Remove puts the standard pilot back.
+    await tester.tap(find.byTooltip('Edit pilot'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CANCEL'));
+    await tester.pumpAndSettle();
+    expect(find.text('Trixie Cottonwood'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Edit pilot'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('REMOVE PILOT'));
+    await tester.pumpAndSettle();
+    expect(find.text('Trixie Cottonwood'), findsNothing);
+    expect(find.text('PILOT'), findsOneWidget);
   });
 }

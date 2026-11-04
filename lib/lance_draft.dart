@@ -9,6 +9,7 @@ import 'lance.dart';
 import 'lance_totals.dart';
 import 'mech_data.dart';
 import 'mech_library.dart';
+import 'pilot_data.dart';
 
 class LanceDraft extends ChangeNotifier {
   LanceDraft(Lance lance, this.library) : _lance = lance;
@@ -56,6 +57,20 @@ class LanceDraft extends ChangeNotifier {
     if (!contains(mechId)) return;
     _lance = _lance.copyWith(
       slots: _lance.slots.where((slot) => slot.mechId != mechId).toList(),
+    );
+    notifyListeners();
+  }
+
+  /// Replaces the pilot of the slot holding [mechId].
+  void setPilot(String mechId, Pilot pilot) {
+    if (!contains(mechId)) return;
+    _lance = _lance.copyWith(
+      slots: [
+        for (final slot in _lance.slots)
+          slot.mechId == mechId
+              ? LanceSlot(mechId: mechId, pilot: pilot)
+              : slot,
+      ],
     );
     notifyListeners();
   }

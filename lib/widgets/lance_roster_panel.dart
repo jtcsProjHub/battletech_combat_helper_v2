@@ -1,6 +1,6 @@
 // File: lib/widgets/lance_roster_panel.dart
-// The mechs in the lance as compact cards, then one dashed outline per open
-// slot with the BV left to spend.
+// The mechs in the lance as compact cards with their pilots, then one dashed
+// outline per open slot with the BV left to spend.
 
 import 'package:flutter/material.dart';
 
@@ -8,8 +8,10 @@ import '../app_theme.dart';
 import '../lance_draft.dart';
 import '../mech_data.dart';
 import '../mech_labels.dart';
+import '../pilot_data.dart';
 import 'hud.dart';
 import 'mech_thumbnail.dart';
+import 'pilot_widgets.dart';
 
 class LanceRosterPanel extends StatelessWidget {
   const LanceRosterPanel({
@@ -32,7 +34,7 @@ class LanceRosterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mechs = draft.mechs;
+    final entries = draft.totals.entries;
     final over = draft.isOverBudget;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
@@ -42,18 +44,27 @@ class LanceRosterPanel extends StatelessWidget {
             const Text('ROSTER', style: _labelStyle),
             const Spacer(),
             Text(
-              '${mechs.length} of ${draft.parameters.maxMechs}',
+              '${entries.length} of ${draft.parameters.maxMechs}',
               style: const TextStyle(fontSize: 12, color: AppColors.textDim),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        for (final m in mechs) ...[
+        for (final (:mech, :pilot) in entries) ...[
           _RosterCard(
-            mech: m,
-            selected: m.id == selectedId,
-            onSelect: () => onSelect(m),
-            onRemove: () => draft.remove(m.id),
+            mech: mech,
+            pilot: pilot,
+            selected: mech.id == selectedId,
+            onSelect: () => onSelect(mech),
+            onRemove: () => draft.remove(mech.id),
+            onEditPilot: () async {
+              final chosen = await showPilotDialog(
+                context,
+                mech: mech,
+                pilot: pilot,
+              );
+              if (chosen != null) draft.setPilot(mech.id, chosen);
+            },
           ),
           const SizedBox(height: 8),
         ],
@@ -76,7 +87,7 @@ class LanceRosterPanel extends StatelessWidget {
           const SizedBox(height: 8),
           for (var i = 0; i < draft.openSlots; i++) ...[
             _OpenSlot(
-              number: mechs.length + i + 1,
+              number: entries.length + i + 1,
               perSlot: draft.battleValuePerOpenSlot,
             ),
             const SizedBox(height: 8),
@@ -102,15 +113,19 @@ class LanceRosterPanel extends StatelessWidget {
 class _RosterCard extends StatelessWidget {
   const _RosterCard({
     required this.mech,
+    required this.pilot,
     required this.selected,
     required this.onSelect,
     required this.onRemove,
+    required this.onEditPilot,
   });
 
   final Mech mech;
+  final Pilot pilot;
   final bool selected;
   final VoidCallback onSelect;
   final VoidCallback onRemove;
+  final VoidCallback onEditPilot;
 
   @override
   Widget build(BuildContext context) {
@@ -129,62 +144,70 @@ class _RosterCard extends StatelessWidget {
               bottom: BorderSide(color: AppColors.border),
             ),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                width: 52,
-                height: 64,
-                color: AppColors.panelRaised,
-                alignment: Alignment.center,
-                child: MechThumbnail(mechId: m.id, width: 46, height: 60),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text.rich(
-                      TextSpan(
-                        text: '${m.name.toUpperCase()} ',
-                        children: [
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 64,
+                    color: AppColors.panelRaised,
+                    alignment: Alignment.center,
+                    child: MechThumbnail(mechId: m.id, width: 46, height: 60),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text.rich(
                           TextSpan(
-                            text: m.variant.toUpperCase(),
-                            style: const TextStyle(color: AppColors.textDim),
+                            text: '${m.name.toUpperCase()} ',
+                            children: [
+                              TextSpan(
+                                text: m.variant.toUpperCase(),
+                                style: const TextStyle(
+                                  color: AppColors.textDim,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          '${m.tonnage.round()} t · ${m.role.label} · ${m.moveText}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textDim,
+                          ),
+                        ),
+                        Text(
+                          '${m.bv} BV',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '${m.tonnage.round()} t · ${m.role.label} · ${m.moveText}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textDim,
-                      ),
-                    ),
-                    Text(
-                      '${m.bv} BV',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    tooltip: 'Remove ${m.name} ${m.variant}',
+                    onPressed: onRemove,
+                    icon: const Icon(Icons.close, size: 18),
+                  ),
+                ],
               ),
-              IconButton(
-                tooltip: 'Remove ${m.name} ${m.variant}',
-                onPressed: onRemove,
-                icon: const Icon(Icons.close, size: 18),
-              ),
+              const Divider(height: 12),
+              PilotRow(pilot: pilot, onEdit: onEditPilot),
             ],
           ),
         ),

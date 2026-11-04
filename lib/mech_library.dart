@@ -75,15 +75,17 @@ class MechLibrary {
   /// The tech bases of the mechs [faction] fields in [era]. Null means any; with a faction but no era, any era
   /// the faction fields the mech in counts. Matches filterMechs, so with neither set every mech counts.
   Set<TechBase> techBases({Era? era, String? faction}) {
-    if (era == null && faction == null)
+    if (era == null && faction == null) {
       return {for (final m in mechs) m.techBase};
+    }
     final result = <TechBase>{};
     for (final m in mechs) {
       final fieldedIn = era != null
           ? [?m.availability[era]]
           : m.availability.values;
-      if (fieldedIn.any((fs) => faction == null || fs.contains(faction)))
+      if (fieldedIn.any((fs) => faction == null || fs.contains(faction))) {
         result.add(m.techBase);
+      }
     }
     return result;
   }

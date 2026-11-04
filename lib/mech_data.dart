@@ -316,8 +316,9 @@ class Mech {
     final result = <Era, List<String>>{};
     value.forEach((label, factions) {
       final era = Era.fromLabel(label as String);
-      if (era != null && factions is List)
+      if (era != null && factions is List) {
         result[era] = factions.map((f) => f.toString()).toList();
+      }
     });
     return result;
   }
