@@ -11,6 +11,7 @@ import '../era.dart';
 import '../lance.dart';
 import '../mech_data.dart' show TechBase;
 import '../mech_library.dart';
+import 'era_label.dart';
 import 'hud.dart';
 
 const Map<TechBase, String> techBaseLabels = {
@@ -186,7 +187,7 @@ class _NewLanceFormState extends State<NewLanceForm> {
                               child: Text('Any era'),
                             ),
                             for (final e in eras)
-                              DropdownMenuItem(value: e, child: Text(e.label)),
+                              DropdownMenuItem(value: e, child: EraLabel(e)),
                           ],
                           onChanged: (e) => setState(() => _era = e),
                         ),

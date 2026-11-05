@@ -15,6 +15,7 @@ import '../mech_columns.dart';
 import '../mech_data.dart';
 import '../mech_labels.dart';
 import '../mech_library.dart';
+import 'era_label.dart';
 import 'hud.dart';
 
 class MechListPanel extends StatefulWidget {
@@ -166,7 +167,7 @@ class _MechListPanelState extends State<MechListPanel> {
                         child: Text('Any era'),
                       ),
                       for (final e in eras)
-                        DropdownMenuItem(value: e, child: Text(e.label)),
+                        DropdownMenuItem(value: e, child: EraLabel(e)),
                     ],
                     onChanged: (e) => setState(() => _era = e),
                   ),

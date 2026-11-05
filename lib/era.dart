@@ -1,25 +1,27 @@
 // File: lib/era.dart
 // The BattleTech eras in timeline order, as named by the Master Unit List. The declaration order is the timeline,
 // so eras compare by index (era >= Era.starLeague); the label is the name used in the JSON data.
-// Years are deliberately not stored: a unit's intro year can fall slightly outside its era's nominal span.
+// The start year is the MUL's nominal one, for display only: a unit's intro year can fall slightly outside its
+// era's nominal span, so never classify units by year.
 
 enum Era {
-  ageOfWar('Age of War'),
-  starLeague('Star League'),
-  earlySuccessionWar('Early Succession War'),
-  lateSuccessionWarLosTech('Late Succession War - LosTech'),
-  lateSuccessionWarRenaissance('Late Succession War - Renaissance'),
-  clanInvasion('Clan Invasion'),
-  civilWar('Civil War'),
-  jihad('Jihad'),
-  earlyRepublic('Early Republic'),
-  lateRepublic('Late Republic'),
-  darkAge('Dark Age'),
-  ilClan('ilClan');
+  ageOfWar('Age of War', 2005),
+  starLeague('Star League', 2571),
+  earlySuccessionWar('Early Succession War', 2781),
+  lateSuccessionWarLosTech('Late Succession War - LosTech', 2901),
+  lateSuccessionWarRenaissance('Late Succession War - Renaissance', 3020),
+  clanInvasion('Clan Invasion', 3050),
+  civilWar('Civil War', 3062),
+  jihad('Jihad', 3068),
+  earlyRepublic('Early Republic', 3081),
+  lateRepublic('Late Republic', 3101),
+  darkAge('Dark Age', 3131),
+  ilClan('ilClan', 3151);
 
-  const Era(this.label);
+  const Era(this.label, this.startYear);
 
   final String label;
+  final int startYear;
 
   bool operator <(Era other) => index < other.index;
   bool operator <=(Era other) => index <= other.index;
