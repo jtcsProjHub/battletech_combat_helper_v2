@@ -19,7 +19,7 @@ class LanceParameters {
     this.techBase,
   });
 
-  static const defaultTargetBattleValue = 3000;
+  static const defaultTargetBattleValue = 5000;
   static const defaultMaxMechs = 4;
 
   final int targetBattleValue;

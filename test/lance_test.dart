@@ -6,9 +6,9 @@ import 'package:battletech_combat_helper_v2/mech_data.dart' show TechBase;
 import 'package:battletech_combat_helper_v2/pilot_data.dart';
 
 void main() {
-  test('Default parameters are 3000 BV and 4 mechs with no filters', () {
+  test('Default parameters are 5000 BV and 4 mechs with no filters', () {
     const p = LanceParameters();
-    expect(p.targetBattleValue, 3000);
+    expect(p.targetBattleValue, 5000);
     expect(p.maxMechs, 4);
     expect(p.era, isNull);
     expect(p.faction, isNull);

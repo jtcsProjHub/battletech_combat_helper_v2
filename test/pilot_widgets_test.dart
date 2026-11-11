@@ -30,7 +30,7 @@ void main() {
     Lance(
       id: 'alpha',
       name: 'Alpha',
-      parameters: const LanceParameters(targetBattleValue: 3000),
+      parameters: const LanceParameters(targetBattleValue: 5000),
       slots: const [
         LanceSlot(mechId: 'tb', pilot: trixie),
         LanceSlot(mechId: 'wv'),

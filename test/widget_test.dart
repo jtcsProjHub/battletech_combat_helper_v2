@@ -69,7 +69,7 @@ void main() {
     expect(find.text('TACTICAL MAP'), findsNothing);
 
     // The defaults show in the form.
-    expect(find.text('3000'), findsOneWidget);
+    expect(find.text('5000'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
 
     await tester.tap(find.text('CREATE LANCE'));
@@ -180,7 +180,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('NEW LANCE'));
     await tester.pumpAndSettle();
-    expect(find.text('3000'), findsOneWidget);
+    expect(find.text('5000'), findsOneWidget);
   });
 
   testWidgets('Cancel returns the panel to the map art', (tester) async {

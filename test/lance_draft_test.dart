@@ -49,7 +49,7 @@ void main() {
   ]);
 
   group('LanceDraft', () {
-    LanceDraft draft({int maxMechs = 2, int target = 3000}) => LanceDraft(
+    LanceDraft draft({int maxMechs = 2, int target = 5000}) => LanceDraft(
       Lance.create(
         name: 'Alpha',
         parameters: LanceParameters(
@@ -106,14 +106,14 @@ void main() {
       d.addListener(() => calls++);
       d.add(library.byId('thunderbolt')!);
       d.add(library.byId('archer')!);
-      d.setTargetBattleValue(3000);
+      d.setTargetBattleValue(5000);
       expect(d.isOverBudget, isFalse);
       expect(d.remainingBattleValue, 312);
       expect(d.mechs.length, 2);
       expect(d.parameters.maxMechs, 2);
       d.setTargetBattleValue(0);
-      d.setTargetBattleValue(3000);
-      expect(d.parameters.targetBattleValue, 3000);
+      d.setTargetBattleValue(5000);
+      expect(d.parameters.targetBattleValue, 5000);
       expect(calls, 3);
     });
   });
@@ -283,7 +283,7 @@ void main() {
     await tester.tap(find.byTooltip('Lower Gunnery'));
     await tester.tap(find.byTooltip('Lower Piloting'));
     await tester.pump();
-    // The default target is 3000; archer is the only mech.
+    // The default target is 5000; archer is the only mech.
     expect(
       find.text('1,353 → 1,786  ×1.32', findRichText: true),
       findsOneWidget,
