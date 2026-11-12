@@ -25,6 +25,22 @@ class MenuOption {
 
 const List<MenuOption> mainMenuOptions = [
   MenuOption(
+    label: 'New Skirmish',
+    description:
+        'Set up a game with saved lances for each side, then track damage '
+        'and heat during play.',
+    steps: ['Choose a lance for each side', 'Start the skirmish'],
+    route: AppRoutes.newSkirmish,
+  ),
+  MenuOption(
+    label: 'Load Skirmish',
+    description:
+        'Resume a skirmish from a save file with damage, heat, and pilot '
+        'status intact.',
+    steps: ['Choose a save file', 'Review lance status', 'Resume play'],
+    route: AppRoutes.loadSkirmish,
+  ),
+  MenuOption(
     label: 'Create / Edit Lance Precons',
     description:
         'Build a lance from the mech catalog, assign pilots, and save it '
@@ -40,20 +56,18 @@ const List<MenuOption> mainMenuOptions = [
     route: AppRoutes.lanceBuilder,
   ),
   MenuOption(
-    label: 'New Skirmish',
+    label: 'Create / Edit Map Sheets',
     description:
-        'Set up a game with saved lances for each side, then track damage '
-        'and heat during play.',
-    steps: ['Choose a lance for each side', 'Start the skirmish'],
-    route: AppRoutes.newSkirmish,
-  ),
-  MenuOption(
-    label: 'Load Skirmish',
-    description:
-        'Resume a skirmish from a save file with damage, heat, and pilot '
-        'status intact.',
-    steps: ['Choose a save file', 'Review lance status', 'Resume play'],
-    route: AppRoutes.loadSkirmish,
+        'Enter a printed map sheet by hand, or extract its terrain from '
+        'photos, and save it for later skirmishes.',
+    steps: [
+      'Name a new map or open a saved one',
+      'Add photos of the sheet and extract, or skip to enter by hand',
+      'Review the flagged hexes',
+      'Correct terrain in the hex inspector',
+      'Save the map',
+    ],
+    route: AppRoutes.mapBuilder,
   ),
 ];
 

@@ -37,6 +37,12 @@ dependencies:
   uuid: ^4.5.3
   flutter_riverpod: ^3.3.2
   path_provider: ^2.1.6
+  file_selector: ^1.0.3
+  path: ^1.9.0
+  # Map extractor core (OCR, grid fit, btmap model) and its OCR models.
+  # The prototype stays the place to tune the extractor.
+  map_extractor_prototype:
+    path: MapExtractorPrototype
 
 dev_dependencies:
   flutter_test:

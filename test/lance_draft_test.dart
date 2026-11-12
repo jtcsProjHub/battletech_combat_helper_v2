@@ -65,9 +65,9 @@ void main() {
       d.add(library.byId('thunderbolt')!);
       expect(d.usedBattleValue, 1335);
       expect(d.tonnage, 65);
-      expect(d.remainingBattleValue, 1665);
+      expect(d.remainingBattleValue, 3665);
       expect(d.openSlots, 1);
-      expect(d.battleValuePerOpenSlot, 1665);
+      expect(d.battleValuePerOpenSlot, 3665);
     });
 
     test('rejects duplicates and adds past the max', () {
@@ -108,7 +108,7 @@ void main() {
       d.add(library.byId('archer')!);
       d.setTargetBattleValue(5000);
       expect(d.isOverBudget, isFalse);
-      expect(d.remainingBattleValue, 312);
+      expect(d.remainingBattleValue, 2312);
       expect(d.mechs.length, 2);
       expect(d.parameters.maxMechs, 2);
       d.setTargetBattleValue(0);
@@ -289,10 +289,10 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text('1,353 → 1,786  / 3,000', findRichText: true),
+      find.text('1,353 → 1,786  / 5,000', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('1,647 → 1,214', findRichText: true), findsOneWidget);
+    expect(find.text('3,647 → 3,214', findRichText: true), findsOneWidget);
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
 

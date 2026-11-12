@@ -4,10 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:battletech_combat_helper_v2/lance_repository.dart';
 import 'package:battletech_combat_helper_v2/main.dart';
+import 'package:battletech_combat_helper_v2/maps/map_repository.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
 import 'package:battletech_combat_helper_v2/screens/lance_builder_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/lance_editor_screen.dart';
+import 'package:battletech_combat_helper_v2/screens/map_builder_screen.dart';
+import 'package:battletech_combat_helper_v2/screens/map_editor_screen.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   Future<void> pumpApp(
@@ -15,6 +19,7 @@ void main() {
     List<Mech> mechs = const [],
     Size size = const Size(1280, 800),
     LanceRepository? lances,
+    MapRepository? maps,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -27,17 +32,21 @@ void main() {
           lanceRepositoryProvider.overrideWithValue(
             lances ?? MemoryLanceRepository(),
           ),
+          mapRepositoryProvider.overrideWithValue(
+            maps ?? MemoryMapRepository(),
+          ),
         ],
         child: const MyApp(),
       ),
     );
   }
 
-  testWidgets('Main menu shows the three options and Quit', (tester) async {
+  testWidgets('Main menu shows the four options and Quit', (tester) async {
     await pumpApp(tester);
 
     // The first option shows in the menu and in the briefing panel.
     expect(find.text('CREATE / EDIT LANCE PRECONS'), findsNWidgets(2));
+    expect(find.text('CREATE / EDIT MAP SHEETS'), findsOneWidget);
     expect(find.text('NEW SKIRMISH'), findsOneWidget);
     expect(find.text('LOAD SKIRMISH'), findsOneWidget);
     expect(find.text('QUIT'), findsOneWidget);
@@ -233,5 +242,105 @@ void main() {
     await tester.pumpAndSettle();
     expect(await repo.loadAll(), isEmpty);
     expect(find.textContaining('No saved lances yet'), findsOneWidget);
+  });
+
+  Future<void> openMapBuilder(WidgetTester tester) async {
+    await tester.tap(find.text('CREATE / EDIT MAP SHEETS'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapBuilderScreen), findsOneWidget);
+  }
+
+  testWidgets('New Map requires a name, then saves from the editor', (
+    tester,
+  ) async {
+    final repo = MemoryMapRepository();
+    await pumpApp(tester, size: const Size(1600, 1000), maps: repo);
+    await openMapBuilder(tester);
+    expect(find.text('0 saved maps'), findsOneWidget);
+
+    await tester.tap(find.text('NEW MAP'));
+    await tester.pumpAndSettle();
+    expect(find.text('15'), findsOneWidget);
+    expect(find.text('17'), findsOneWidget);
+
+    await tester.tap(find.text('CREATE MAP'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a name for the map.'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Map name *'),
+      'Foothills #1',
+    );
+    await tester.tap(find.text('CREATE MAP'));
+    await tester.pumpAndSettle();
+
+    // Create opens the full-screen editor with an empty standard sheet.
+    expect(find.byType(MapEditorScreen), findsOneWidget);
+    expect(find.text('FOOTHILLS #1'), findsOneWidget);
+    expect(find.text('15 × 17'), findsOneWidget);
+    expect(find.text('NEXT TO REVIEW (0)'), findsOneWidget);
+
+    // Select every hex and set light woods.
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('255 HEXES'), findsOneWidget);
+    await tester.tap(find.text('Light'));
+    await tester.pumpAndSettle();
+    expect(find.text('MAP BUILDER · UNSAVED'), findsOneWidget);
+
+    await tester.tap(find.text('SAVE MAP'));
+    await tester.pumpAndSettle();
+    expect(find.text('MAP BUILDER'), findsOneWidget);
+    final saved = (await repo.loadAll()).single;
+    expect(saved.name, 'Foothills #1');
+    expect(saved.sheet.hexes.length, 255);
+
+    // Back with nothing unsaved goes straight to the hub, which shows the
+    // saved map.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(MapEditorScreen), findsNothing);
+    expect(find.text('FOOTHILLS #1'), findsOneWidget);
+    expect(find.text('15 × 17 hexes · 255 with terrain'), findsOneWidget);
+    expect(find.text('1 saved map'), findsOneWidget);
+  });
+
+  testWidgets('Back from the map editor asks before it drops changes', (
+    tester,
+  ) async {
+    final repo = MemoryMapRepository();
+    await pumpApp(tester, size: const Size(1600, 1000), maps: repo);
+    await openMapBuilder(tester);
+    await tester.tap(find.text('NEW MAP'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Map name *'),
+      'Scratch',
+    );
+    await tester.tap(find.text('CREATE MAP'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Map name'),
+      'Scratch 2',
+    );
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Discard unsaved changes?'), findsOneWidget);
+
+    await tester.tap(find.text('CANCEL'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapEditorScreen), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DISCARD'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapEditorScreen), findsNothing);
+    expect(await repo.loadAll(), isEmpty);
+    expect(find.textContaining('No saved maps yet'), findsOneWidget);
   });
 }

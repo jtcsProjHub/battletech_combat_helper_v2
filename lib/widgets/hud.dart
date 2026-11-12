@@ -325,3 +325,25 @@ class _DashedBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+/// Filled text field look used by the HUD forms. Same values as the New
+/// Lance form.
+InputDecoration hudInputDecoration(
+  String label, {
+  bool required = false,
+  String? hint,
+  bool dense = false,
+}) => InputDecoration(
+  labelText: required ? '$label *' : label,
+  hintText: hint,
+  isDense: dense,
+  filled: true,
+  fillColor: AppColors.panelRaised,
+  border: const OutlineInputBorder(
+    borderRadius: BorderRadius.all(Radius.circular(2)),
+  ),
+  enabledBorder: const OutlineInputBorder(
+    borderRadius: BorderRadius.all(Radius.circular(2)),
+    borderSide: BorderSide(color: AppColors.borderStrong),
+  ),
+);

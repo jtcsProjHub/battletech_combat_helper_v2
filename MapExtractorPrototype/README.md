@@ -48,6 +48,8 @@ Select hexes on the map or on a photo:
 - Ctrl+A selects all hexes. Esc clears the selection.
 - The zoom bar at the bottom right has a slider, zoom buttons and a fit button. The mouse wheel also zooms.
 
+Opening a JSON file replaces the loaded photos and the current map. If anything is loaded, the app asks you to confirm first. A file that does not parse leaves the current data as it was.
+
 Click a Photo chip above the map to see the fitted grid on that photo. Turn on OCR boxes to see every text box that the recognizer read. Cyan text is a hex number. Yellow text is other text.
 
 ## How the extractor works
@@ -129,7 +131,6 @@ The file holds printed reference data only. Items that players add for one skirm
 
 ## Known limits
 
-- The code was written without a Dart SDK in the build environment. The algorithm was checked with the Python reference, and the ONNX Runtime binding was checked from C. Run `flutter analyze` and `flutter test` first, and expect small fixes.
 - Each extraction starts a new isolate and loads the models again. This costs about one second per image.
 - Vector PDFs need a PDF renderer such as `pdfrx`.
 - The OCR word list covers the labels on the test sheets plus common terrain words. Unknown words are ignored. Turn on OCR boxes to find them.
