@@ -161,6 +161,10 @@ def check_mech(mech: dict) -> list[tuple[str, tuple[str, ...]]]:
             if location in STRUCTURE_INDEX and value != expected[STRUCTURE_INDEX[location]]:
                 issues.append((f"structure {location} {value} should be {expected[STRUCTURE_INDEX[location]]} for {tonnage} tons", (key("structureByLocation"), key(location),)))
 
+    # No record sheet mech has an unarmored location. A 0 almost always means OCR read no digits, e.g. "22" as "ee".
+    for location, value in armor.items():
+        if value == 0:
+            issues.append((f"armor {location} is 0 (OCR read no digits?)", (key("armorByLocation"), key(location),)))
     if armor.get("head", 0) > MAX_HEAD_ARMOR:
         issues.append((f"armor head {armor['head']} exceeds max {MAX_HEAD_ARMOR}", (key("armorByLocation"), key("head"),)))
     for location, value in structure.items():
