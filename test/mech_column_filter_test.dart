@@ -207,7 +207,7 @@ void main() {
       // Intro is not a default column.
       expect(find.text('INTRO'), findsNothing);
 
-      await tester.tap(find.text('Column filters'));
+      await tester.tap(find.text('More filters'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(MenuItemButton, 'Move'));
       await tester.pumpAndSettle();

@@ -4,8 +4,8 @@
 // one's choices narrow to what the other two still allow. Weight class
 // chips pick any mix of classes. Each filterable column also takes its own
 // filter (number ranges, or a checklist for Role) from its header's
-// right-click menu or the Column filters menu, which also reaches hidden
-// columns.
+// right-click menu or the More filters menu, which also reaches hidden
+// columns and the weapons and equipment filter.
 // Active column filters show as chips. Sort, filters, and visible columns
 // live here; the selection lives in the screen.
 
@@ -19,6 +19,7 @@ import '../era.dart';
 import '../lance.dart';
 import '../mech_columns.dart';
 import '../mech_data.dart';
+import '../mech_gear.dart';
 import '../mech_labels.dart';
 import '../mech_library.dart';
 import 'era_label.dart';
@@ -60,6 +61,7 @@ class _MechListPanelState extends State<MechListPanel> {
   /// Empty means every class.
   final Set<WeightClass> _weightClasses = {};
   final Map<MechColumn, ColumnFilter> _columnFilters = {};
+  GearFilter _gear = GearFilter.none;
 
   /// Null sorts by name.
   MechColumn? _sortColumn = MechColumn.battleValue;
@@ -85,6 +87,16 @@ class _MechListPanelState extends State<MechListPanel> {
     _techBase = widget.defaults.techBase;
     _weightClasses.clear();
     _columnFilters.clear();
+    _gear = GearFilter.none;
+  }
+
+  Future<void> _editGear() async {
+    final result = await showDialog<GearFilter>(
+      context: context,
+      builder: (context) =>
+          _GearFilterDialog(initial: _gear, mechs: widget.library.mechs),
+    );
+    if (result != null) setState(() => _gear = result);
   }
 
   Future<void> _editFilter(MechColumn column) async {
@@ -134,6 +146,7 @@ class _MechListPanelState extends State<MechListPanel> {
       techBase: techBase,
       weightClasses: _weightClasses,
       columnFilters: _columnFilters,
+      gear: _gear,
     );
     final column = _sortColumn;
     int compare(Mech a, Mech b) {
@@ -296,18 +309,30 @@ class _MechListPanelState extends State<MechListPanel> {
                           ),
                           child: Text(c.label),
                         ),
+                      const Divider(height: 1),
+                      MenuItemButton(
+                        onPressed: _editGear,
+                        leadingIcon: Icon(
+                          Icons.build_outlined,
+                          size: 18,
+                          color: _gear.isEmpty
+                              ? AppColors.textDim
+                              : AppColors.accent,
+                        ),
+                        child: const Text('Weapons & equipment…'),
+                      ),
                     ],
                     builder: (context, controller, _) => OutlinedButton.icon(
                       onPressed: () => controller.isOpen
                           ? controller.close()
                           : controller.open(),
                       icon: const Icon(Icons.filter_alt_outlined, size: 18),
-                      label: const Text('Column filters'),
+                      label: const Text('More filters'),
                     ),
                   ),
                 ],
               ),
-              if (_columnFilters.isNotEmpty) ...[
+              if (_columnFilters.isNotEmpty || !_gear.isEmpty) ...[
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
@@ -329,6 +354,21 @@ class _MechListPanelState extends State<MechListPanel> {
                           onDeleted: () =>
                               setState(() => _columnFilters.remove(c)),
                         ),
+                    if (!_gear.isEmpty)
+                      InputChip(
+                        avatar: const Icon(
+                          Icons.build_outlined,
+                          size: 16,
+                          color: AppColors.accent,
+                        ),
+                        label: Text(_gear.describe()),
+                        tooltip: 'Edit weapons & equipment filter',
+                        onPressed: _editGear,
+                        deleteButtonTooltipMessage:
+                            'Remove weapons & equipment filter',
+                        onDeleted: () =>
+                            setState(() => _gear = GearFilter.none),
+                      ),
                   ],
                 ),
               ],
@@ -883,6 +923,143 @@ class _ColumnFilterDialogState extends State<_ColumnFilterDialog> {
         onChanged: (_) => setState(() {}),
         onSubmitted: (_) => _apply(),
       );
+}
+
+/// Searchable checklist of every weapon and equipment name in the catalog,
+/// grouped, with how many mechs carry each, and an all/any switch. Pops
+/// the new filter (empty from Clear), or null on Cancel.
+class _GearFilterDialog extends StatefulWidget {
+  const _GearFilterDialog({required this.initial, required this.mechs});
+
+  final GearFilter initial;
+  final List<Mech> mechs;
+
+  @override
+  State<_GearFilterDialog> createState() => _GearFilterDialogState();
+}
+
+class _GearFilterDialogState extends State<_GearFilterDialog> {
+  late final Set<String> _items = Set.of(widget.initial.items);
+  late GearMatch _match = widget.initial.match;
+  final _search = TextEditingController();
+  late final _catalog = gearCatalog(widget.mechs);
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<Widget> _group(String label, Map<String, int> counts) {
+    final q = _search.text.trim().toLowerCase();
+    final names = [
+      for (final n in counts.keys)
+        if (q.isEmpty || n.toLowerCase().contains(q)) n,
+    ];
+    if (names.isEmpty) return const [];
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+        child: Text(label, style: HudText.sectionLabel),
+      ),
+      for (final n in names)
+        CheckboxListTile(
+          value: _items.contains(n),
+          dense: true,
+          title: Text(n),
+          secondary: Text(
+            '${counts[n]}',
+            style: const TextStyle(fontSize: 12, color: AppColors.textDim),
+          ),
+          onChanged: (on) => setState(() {
+            if (on ?? false) {
+              _items.add(n);
+            } else {
+              _items.remove(n);
+            }
+          }),
+        ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = [
+      ..._group('WEAPONS', _catalog.weapons),
+      ..._group('EQUIPMENT', _catalog.equipment),
+    ];
+    return AlertDialog(
+      title: const Text('Weapons & equipment'),
+      content: SizedBox(
+        width: 420,
+        height: 520,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _search,
+                    autofocus: true,
+                    onChanged: (_) => setState(() {}),
+                    decoration: _fieldDecoration(
+                      'Search',
+                      false,
+                    ).copyWith(prefixIcon: const Icon(Icons.search, size: 18)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SegmentedButton<GearMatch>(
+                  segments: [
+                    for (final m in GearMatch.values)
+                      ButtonSegment(value: m, label: Text(m.label)),
+                  ],
+                  selected: {_match},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) => setState(() => _match = s.first),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _items.isEmpty
+                  ? 'Check items to show only mechs that carry them. The '
+                        'number is how many mechs in the catalog do.'
+                  : '${_items.length} checked',
+              style: const TextStyle(fontSize: 12, color: AppColors.textDim),
+            ),
+            Expanded(
+              child: list.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Nothing matches the search.',
+                        style: TextStyle(color: AppColors.textDim),
+                      ),
+                    )
+                  : ListView(children: list),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(GearFilter.none),
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(GearFilter(items: _items, match: _match)),
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
 }
 
 /// Checklist of optional columns, with a reset to the defaults.

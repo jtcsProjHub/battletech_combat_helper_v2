@@ -5,6 +5,7 @@
 
 import 'era.dart';
 import 'mech_data.dart';
+import 'mech_gear.dart';
 import 'mech_labels.dart';
 
 enum MechColumn {
@@ -190,6 +191,7 @@ List<Mech> filterMechs(
   TechBase? techBase,
   Set<WeightClass> weightClasses = const {},
   Map<MechColumn, ColumnFilter> columnFilters = const {},
+  GearFilter gear = GearFilter.none,
 }) {
   final q = query.trim().toLowerCase();
   return mechs.where((m) {
@@ -203,6 +205,7 @@ List<Mech> filterMechs(
     for (final MapEntry(key: column, value: filter) in columnFilters.entries) {
       if (!filter.matches(column, m)) return false;
     }
+    if (!gear.matches(m)) return false;
     if (era != null) {
       final factions = m.availability[era];
       if (factions == null) return false;
