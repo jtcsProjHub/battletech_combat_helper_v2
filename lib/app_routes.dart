@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'screens/lance_builder_screen.dart';
+import 'screens/load_skirmish_screen.dart';
 import 'screens/main_menu_screen.dart';
 import 'screens/map_builder_screen.dart';
-import 'screens/placeholder_screen.dart';
+import 'screens/skirmish_setup_screen.dart';
 
 /// Named routes for the app. Use these constants with Navigator.pushNamed.
 class AppRoutes {
@@ -19,7 +20,7 @@ class AppRoutes {
     mainMenu: (_) => const MainMenuScreen(),
     lanceBuilder: (_) => const LanceBuilderScreen(),
     mapBuilder: (_) => const MapBuilderScreen(),
-    newSkirmish: (_) => const PlaceholderScreen(title: 'New Skirmish'),
-    loadSkirmish: (_) => const PlaceholderScreen(title: 'Load Skirmish'),
+    newSkirmish: (_) => const SkirmishSetupScreen(),
+    loadSkirmish: (_) => const LoadSkirmishScreen(),
   };
 }

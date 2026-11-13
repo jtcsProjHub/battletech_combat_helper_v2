@@ -29,7 +29,12 @@ const List<MenuOption> mainMenuOptions = [
     description:
         'Set up a game with saved lances for each side, then track damage '
         'and heat during play.',
-    steps: ['Choose a lance for each side', 'Start the skirmish'],
+    steps: [
+      'Choose a lance for Player 1',
+      'Choose a lance for Player 2',
+      'Choose a map',
+      'Review and confirm',
+    ],
     route: AppRoutes.newSkirmish,
   ),
   MenuOption(
@@ -37,7 +42,11 @@ const List<MenuOption> mainMenuOptions = [
     description:
         'Resume a skirmish from a save file with damage, heat, and pilot '
         'status intact.',
-    steps: ['Choose a save file', 'Review lance status', 'Resume play'],
+    steps: [
+      'Choose a saved skirmish',
+      'Review its status',
+      'Continue setup or resume play',
+    ],
     route: AppRoutes.loadSkirmish,
   ),
   MenuOption(
@@ -94,8 +103,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     Navigator.of(context).pushNamed(mainMenuOptions[index].route);
   }
 
+  /// Cancelable, so open screens get the exit request and can save first.
   void _quit() {
-    ServicesBinding.instance.exitApplication(AppExitType.required);
+    ServicesBinding.instance.exitApplication(AppExitType.cancelable);
   }
 
   @override
