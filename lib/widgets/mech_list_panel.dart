@@ -1,12 +1,18 @@
 // File: lib/widgets/mech_list_panel.dart
 // Searchable, filterable, sortable mech list for the Lance Builder. The era,
 // faction, and tech base filters start from the lance parameters, and each
-// one's choices narrow to what the other two still allow. Sort, filters, and
-// visible columns live here; the selection lives in the screen.
+// one's choices narrow to what the other two still allow. Weight class
+// chips pick any mix of classes. Each filterable column also takes its own
+// filter (number ranges, or a checklist for Role) from its header's
+// right-click menu or the Column filters menu, which also reaches hidden
+// columns.
+// Active column filters show as chips. Sort, filters, and visible columns
+// live here; the selection lives in the screen.
 
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app_theme.dart';
 import '../era.dart';
@@ -50,7 +56,10 @@ class _MechListPanelState extends State<MechListPanel> {
   Era? _era;
   String? _faction;
   TechBase? _techBase;
-  WeightClass? _weightClass;
+
+  /// Empty means every class.
+  final Set<WeightClass> _weightClasses = {};
+  final Map<MechColumn, ColumnFilter> _columnFilters = {};
 
   /// Null sorts by name.
   MechColumn? _sortColumn = MechColumn.battleValue;
@@ -74,7 +83,27 @@ class _MechListPanelState extends State<MechListPanel> {
     _era = widget.defaults.era;
     _faction = widget.defaults.faction;
     _techBase = widget.defaults.techBase;
-    _weightClass = null;
+    _weightClasses.clear();
+    _columnFilters.clear();
+  }
+
+  Future<void> _editFilter(MechColumn column) async {
+    final result = await showDialog<ColumnFilter>(
+      context: context,
+      builder: (context) => _ColumnFilterDialog(
+        column: column,
+        initial: _columnFilters[column] ?? ColumnFilter.none,
+        mechs: widget.library.mechs,
+      ),
+    );
+    if (result == null) return;
+    setState(() {
+      if (result.isEmpty) {
+        _columnFilters.remove(column);
+      } else {
+        _columnFilters[column] = result;
+      }
+    });
   }
 
   void _sortBy(MechColumn? column) {
@@ -103,7 +132,8 @@ class _MechListPanelState extends State<MechListPanel> {
       era: era,
       faction: faction,
       techBase: techBase,
-      weightClass: _weightClass,
+      weightClasses: _weightClasses,
+      columnFilters: _columnFilters,
     );
     final column = _sortColumn;
     int compare(Mech a, Mech b) {
@@ -224,11 +254,21 @@ class _MechListPanelState extends State<MechListPanel> {
                     WeightClass.heavy,
                     WeightClass.assault,
                   ])
-                    ChoiceChip(
+                    FilterChip(
                       label: Text(wc == null ? 'All classes' : _wcLabel(wc)),
-                      selected: _weightClass == wc,
+                      selected: wc == null
+                          ? _weightClasses.isEmpty
+                          : _weightClasses.contains(wc),
                       showCheckmark: false,
-                      onSelected: (_) => setState(() => _weightClass = wc),
+                      onSelected: (on) => setState(() {
+                        if (wc == null) {
+                          _weightClasses.clear();
+                        } else if (on) {
+                          _weightClasses.add(wc);
+                        } else {
+                          _weightClasses.remove(wc);
+                        }
+                      }),
                     ),
                   const SizedBox(width: 8),
                   OutlinedButton(
@@ -240,8 +280,58 @@ class _MechListPanelState extends State<MechListPanel> {
                     icon: const Icon(Icons.view_column_outlined, size: 18),
                     label: const Text('Columns'),
                   ),
+                  MenuAnchor(
+                    menuChildren: [
+                      for (final c in MechColumn.filterableColumns)
+                        MenuItemButton(
+                          onPressed: () => _editFilter(c),
+                          leadingIcon: Icon(
+                            _columnFilters.containsKey(c)
+                                ? Icons.filter_alt
+                                : Icons.filter_alt_outlined,
+                            size: 18,
+                            color: _columnFilters.containsKey(c)
+                                ? AppColors.accent
+                                : AppColors.textDim,
+                          ),
+                          child: Text(c.label),
+                        ),
+                    ],
+                    builder: (context, controller, _) => OutlinedButton.icon(
+                      onPressed: () => controller.isOpen
+                          ? controller.close()
+                          : controller.open(),
+                      icon: const Icon(Icons.filter_alt_outlined, size: 18),
+                      label: const Text('Column filters'),
+                    ),
+                  ),
                 ],
               ),
+              if (_columnFilters.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final c in MechColumn.filterableColumns)
+                      if (_columnFilters[c] case final f?)
+                        InputChip(
+                          avatar: const Icon(
+                            Icons.filter_alt,
+                            size: 16,
+                            color: AppColors.accent,
+                          ),
+                          label: Text(f.describe(c)),
+                          tooltip: 'Edit ${c.label} filter',
+                          onPressed: () => _editFilter(c),
+                          deleteButtonTooltipMessage:
+                              'Remove ${c.label} filter',
+                          onDeleted: () =>
+                              setState(() => _columnFilters.remove(c)),
+                        ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 '${mechs.length} of ${widget.library.mechs.length} mechs'
@@ -292,6 +382,62 @@ class _MechListPanelState extends State<MechListPanel> {
     );
   }
 
+  /// Right-click menu on a column header: sort either way, and filter.
+  Future<void> _showHeaderMenu(
+    MechColumn? column,
+    Offset globalPosition,
+  ) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final filtered = column != null && _columnFilters.containsKey(column);
+    final action = await showMenu<_HeaderAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: _HeaderAction.sortAscending,
+          child: _MenuRow(Icons.arrow_upward, 'Sort ascending'),
+        ),
+        const PopupMenuItem(
+          value: _HeaderAction.sortDescending,
+          child: _MenuRow(Icons.arrow_downward, 'Sort descending'),
+        ),
+        if (column != null && column.filterable) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: _HeaderAction.filter,
+            child: _MenuRow(Icons.filter_alt_outlined, 'Filter…'),
+          ),
+          if (filtered)
+            const PopupMenuItem(
+              value: _HeaderAction.clearFilter,
+              child: _MenuRow(Icons.filter_alt_off_outlined, 'Clear filter'),
+            ),
+        ],
+      ],
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _HeaderAction.sortAscending:
+        setState(() {
+          _sortColumn = column;
+          _ascending = true;
+        });
+      case _HeaderAction.sortDescending:
+        setState(() {
+          _sortColumn = column;
+          _ascending = false;
+        });
+      case _HeaderAction.filter:
+        await _editFilter(column!);
+      case _HeaderAction.clearFilter:
+        setState(() => _columnFilters.remove(column));
+    }
+  }
+
   Widget _header() {
     Widget cell(
       String label,
@@ -300,44 +446,63 @@ class _MechListPanelState extends State<MechListPanel> {
       bool right = false,
     }) {
       final active = _sortColumn == column;
-      final child = InkWell(
-        onTap: () => _sortBy(column),
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          alignment: right ? Alignment.centerRight : Alignment.centerLeft,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  label.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  softWrap: false,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.3,
-                    color: active ? AppColors.accent : AppColors.textDim,
+      final filtered = column != null && _columnFilters.containsKey(column);
+      final child = GestureDetector(
+        onSecondaryTapUp: (d) => _showHeaderMenu(column, d.globalPosition),
+        child: InkWell(
+          onTap: () => _sortBy(column),
+          child: Container(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            alignment: right ? Alignment.centerRight : Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    label.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.3,
+                      color: active ? AppColors.accent : AppColors.textDim,
+                    ),
                   ),
                 ),
-              ),
-              if (active)
-                Icon(
-                  _ascending ? Icons.arrow_upward : Icons.arrow_downward,
-                  size: 12,
-                  color: AppColors.accent,
-                ),
-            ],
+                if (active)
+                  Icon(
+                    _ascending ? Icons.arrow_upward : Icons.arrow_downward,
+                    size: 12,
+                    color: AppColors.accent,
+                  ),
+                // Marks a filtered column; the chip above says how.
+                if (filtered)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(left: 4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       );
       final labelled = Semantics(
-        label: 'Sort by $label',
+        label: filtered ? 'Sort by $label, filtered' : 'Sort by $label',
         button: true,
         excludeSemantics: true,
-        child: child,
+        child: Tooltip(
+          message: 'Right-click for sort and filter options',
+          waitDuration: const Duration(seconds: 1),
+          child: child,
+        ),
       );
       return width == null
           ? Expanded(child: labelled)
@@ -514,6 +679,210 @@ class _FilterDropdown<T> extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _HeaderAction { sortAscending, sortDescending, filter, clearFilter }
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 18, color: AppColors.textDim),
+      const SizedBox(width: 12),
+      Text(label),
+    ],
+  );
+}
+
+/// Edits one column's filter: a checklist for Role, min and max fields for
+/// each number of a numeric column. Pops the new filter (empty from Clear),
+/// or null on Cancel.
+class _ColumnFilterDialog extends StatefulWidget {
+  const _ColumnFilterDialog({
+    required this.column,
+    required this.initial,
+    required this.mechs,
+  });
+
+  final MechColumn column;
+  final ColumnFilter initial;
+  final List<Mech> mechs;
+
+  @override
+  State<_ColumnFilterDialog> createState() => _ColumnFilterDialogState();
+}
+
+class _ColumnFilterDialogState extends State<_ColumnFilterDialog> {
+  late final Set<String> _values = Set.of(widget.initial.values);
+  late final Map<String, (TextEditingController, TextEditingController)>
+  _fields = {
+    for (final f in widget.column.numericFields)
+      f.label: (
+        TextEditingController(
+          text: widget.initial.ranges[f.label]?.min?.toString() ?? '',
+        ),
+        TextEditingController(
+          text: widget.initial.ranges[f.label]?.max?.toString() ?? '',
+        ),
+      ),
+  };
+
+  /// Checklist choices: the values present in the catalog, in name order.
+  late final List<String> _choices = {
+    for (final m in widget.mechs) ?widget.column.category(m),
+  }.toList()..sort();
+
+  @override
+  void dispose() {
+    for (final (min, max) in _fields.values) {
+      min.dispose();
+      max.dispose();
+    }
+    super.dispose();
+  }
+
+  NumRange _range(String label) {
+    final (min, max) = _fields[label]!;
+    return (min: int.tryParse(min.text), max: int.tryParse(max.text));
+  }
+
+  bool get _valid => _fields.keys.every((label) {
+    final r = _range(label);
+    return r.min == null || r.max == null || r.min! <= r.max!;
+  });
+
+  void _apply() {
+    if (!_valid) return;
+    Navigator.of(context).pop(
+      ColumnFilter(
+        values: _values,
+        ranges: {
+          for (final label in _fields.keys)
+            if (_range(label) case final r when r.min != null || r.max != null)
+              label: r,
+        },
+      ),
+    );
+  }
+
+  /// The lowest and highest value in the catalog, as a hint. An intro year
+  /// of 0 means unknown, so it is left out.
+  String _catalogSpan(NumericField f) {
+    final unknownZero = widget.column == MechColumn.intro;
+    final vs = [
+      for (final m in widget.mechs) f.value(m),
+    ].where((v) => !unknownZero || v > 0).toList();
+    if (vs.isEmpty) return '';
+    final lo = vs.reduce(math.min).round();
+    final hi = vs.reduce(math.max).round();
+    return 'Catalog: $lo–$hi';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final column = widget.column;
+    return AlertDialog(
+      title: Text('Filter ${column.label}'),
+      content: SizedBox(
+        width: 360,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (column.hasCategories) ...[
+                const Text(
+                  'Show mechs with any of the checked values. None checked '
+                  'shows all.',
+                  style: TextStyle(fontSize: 13, color: AppColors.textDim),
+                ),
+                const SizedBox(height: 8),
+                for (final v in _choices)
+                  CheckboxListTile(
+                    value: _values.contains(v),
+                    title: Text(v),
+                    dense: true,
+                    onChanged: (on) => setState(() {
+                      if (on ?? false) {
+                        _values.add(v);
+                      } else {
+                        _values.remove(v);
+                      }
+                    }),
+                  ),
+              ],
+              for (final f in column.numericFields) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          f.label,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Text(
+                        _catalogSpan(f),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textDim,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(child: _numberField('Min', _fields[f.label]!.$1)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _numberField('Max', _fields[f.label]!.$2)),
+                  ],
+                ),
+              ],
+              if (!_valid)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Text(
+                    'Min must not be above Max.',
+                    style: TextStyle(color: AppColors.danger),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(ColumnFilter.none),
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _valid ? _apply : null,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+
+  Widget _numberField(String label, TextEditingController controller) =>
+      TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: _fieldDecoration(label, false),
+        onChanged: (_) => setState(() {}),
+        onSubmitted: (_) => _apply(),
+      );
 }
 
 /// Checklist of optional columns, with a reset to the defaults.

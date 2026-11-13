@@ -144,7 +144,7 @@ void main() {
       expect(
         filterMechs(
           library.mechs,
-          weightClass: WeightClass.heavy,
+          weightClasses: {WeightClass.heavy},
         ).map((m) => m.id),
         ['thunderbolt', 'archer'],
       );
