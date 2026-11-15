@@ -368,9 +368,18 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
         ),
       );
     }
-    return ListView(
+    return Padding(
       padding: pad,
-      children: [LanceRosterDetail(lance: lance, library: library)],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SkirmishColumnHeader(label: 'Preview'),
+          const SizedBox(height: 16),
+          Expanded(
+            child: LanceRosterDetail(lance: lance, library: library),
+          ),
+        ],
+      ),
     );
   }
 

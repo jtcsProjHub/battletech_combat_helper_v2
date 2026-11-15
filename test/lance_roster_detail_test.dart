@@ -75,7 +75,10 @@ Future<void> _pump(WidgetTester tester, LanceRosterDetail detail) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: SingleChildScrollView(child: SizedBox(width: 680, child: detail)),
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(width: 680, height: 1400, child: detail),
+        ),
       ),
     ),
   );

@@ -589,9 +589,7 @@ class _SavedLancesPanel extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: SingleChildScrollView(
-            child: LanceRosterDetail(lance: open, library: lib),
-          ),
+          child: LanceRosterDetail(lance: open, library: lib),
         ),
       ],
     );

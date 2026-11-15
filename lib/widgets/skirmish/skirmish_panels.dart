@@ -64,18 +64,23 @@ class PlayerLancePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = lance;
     final lib = library;
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.all(24),
-      children: [
-        SkirmishColumnHeader(label: label),
-        const SizedBox(height: 16),
-        if (l == null)
-          Text(emptyText, style: _bodyText)
-        else if (lib == null)
-          const Center(child: CircularProgressIndicator())
-        else
-          LanceRosterDetail(lance: l, library: lib),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SkirmishColumnHeader(label: label),
+          const SizedBox(height: 16),
+          if (l == null)
+            Text(emptyText, style: _bodyText)
+          else if (lib == null)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else
+            Expanded(
+              child: LanceRosterDetail(lance: l, library: lib),
+            ),
+        ],
+      ),
     );
   }
 }

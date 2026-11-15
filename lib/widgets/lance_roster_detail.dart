@@ -18,8 +18,9 @@ import 'hud.dart';
 import 'mech_thumbnail.dart';
 import 'pilot_widgets.dart';
 
-/// Sizes to its content, so put it in a scroll view when the parent has a
-/// fixed height.
+/// The header and the SELECTED label stay put while the mech cards scroll
+/// below them, so give it a bounded height (for example inside [Expanded]),
+/// not a scroll view.
 class LanceRosterDetail extends StatelessWidget {
   const LanceRosterDetail({
     super.key,
@@ -54,27 +55,35 @@ class LanceRosterDetail extends StatelessWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
       children: [
         _Header(totals: totals),
         const SizedBox(height: 20),
         const Text('SELECTED', style: HudText.sectionLabel),
         const SizedBox(height: 10),
-        if (totals.entries.isEmpty)
-          const _Note('No mechs in this lance yet.')
-        else
-          for (final (mech: m, :pilot) in totals.entries) ...[
-            _MechCard(
-              mech: m,
-              pilot: pilot,
-              onRemove: remove == null ? null : () => remove(m.id),
-              onEditPilot: editPilot == null ? null : () => editPilot(m.id),
-              onTap: select == null ? null : () => select(m),
-            ),
-            const SizedBox(height: 10),
-          ],
-        const SizedBox(height: 10),
-        _Footer(totals: totals, editable: editable),
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              if (totals.entries.isEmpty)
+                const _Note('No mechs in this lance yet.')
+              else
+                for (final (mech: m, :pilot) in totals.entries) ...[
+                  _MechCard(
+                    mech: m,
+                    pilot: pilot,
+                    onRemove: remove == null ? null : () => remove(m.id),
+                    onEditPilot: editPilot == null
+                        ? null
+                        : () => editPilot(m.id),
+                    onTap: select == null ? null : () => select(m),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              const SizedBox(height: 10),
+              _Footer(totals: totals, editable: editable),
+            ],
+          ),
+        ),
       ],
     );
   }
