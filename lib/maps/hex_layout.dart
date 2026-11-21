@@ -7,6 +7,8 @@ import 'dart:ui';
 
 import 'package:map_extractor_prototype/map_extractor.dart';
 
+import 'terrain_type.dart';
+
 class HexLayout {
   const HexLayout(this.grid, {this.radius = 44});
 
@@ -102,10 +104,13 @@ abstract final class TerrainStyle {
     return _levelUp[t.level.clamp(0, _levelUp.length - 1)];
   }
 
-  static Color? woods(Woods w) => switch (w) {
-    Woods.none => null,
-    Woods.light => const Color(0xFF7CB342),
-    Woods.heavy => const Color(0xFF2E7D32),
-    Woods.ultraHeavy => const Color(0xFF1B3D1F),
+  /// Marker color drawn over the fill for [type], or null when the type
+  /// has no marker (its look comes from the fill or the printed label).
+  static Color? marker(TerrainType type) => switch (type) {
+    TerrainType.lightWoods => const Color(0xFF7CB342),
+    TerrainType.heavyWoods => const Color(0xFF2E7D32),
+    TerrainType.ultraHeavyWoods => const Color(0xFF1B3D1F),
+    TerrainType.rough || TerrainType.rubble => const Color(0xFF6D6D6D),
+    _ => null,
   };
 }

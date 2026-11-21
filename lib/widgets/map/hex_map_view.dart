@@ -11,6 +11,7 @@ import 'package:map_extractor_prototype/map_extractor.dart';
 import '../../maps/hex_layout.dart';
 import '../../maps/hex_selection.dart';
 import '../../maps/map_sheet_draft.dart';
+import '../../maps/terrain_type.dart';
 import 'hex_canvas.dart';
 
 /// Editable schematic map. It only needs a draft, a selection and the
@@ -164,10 +165,10 @@ void _paintFeatures(
 ) {
   final c = layout.center(hex);
   final r = layout.radius;
-  final woods = TerrainStyle.woods(t.woods);
+  final woods = t.woodsType;
   if (woods != null) {
-    final p = Paint()..color = woods;
-    final n = t.woods == Woods.light ? 3 : 5;
+    final p = Paint()..color = TerrainStyle.marker(woods)!;
+    final n = woods == TerrainType.lightWoods ? 3 : 5;
     for (var i = 0; i < n; i++) {
       final a = 2 * math.pi * i / n + 0.4;
       canvas.drawCircle(
@@ -177,9 +178,13 @@ void _paintFeatures(
       );
     }
   }
-  if (t.features.contains(TerrainFeature.rough) ||
-      t.features.contains(TerrainFeature.rubble)) {
-    final p = Paint()..color = const Color(0xFF6D6D6D);
+  final rough = t.has(TerrainType.rough)
+      ? TerrainType.rough
+      : t.has(TerrainType.rubble)
+      ? TerrainType.rubble
+      : null;
+  if (rough != null) {
+    final p = Paint()..color = TerrainStyle.marker(rough)!;
     for (final o in const [
       Offset(-0.35, 0.05),
       Offset(0.3, -0.1),
