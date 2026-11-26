@@ -1,9 +1,8 @@
 // File: lib/widgets/map/hex_inspector.dart
 // Editor for the selected hexes. With several hexes selected, every edit
 // applies to all of them. Photos and OCR evidence show the primary hex.
-// Ported from the Map Extractor prototype. The skirmish setup editor can
-// reuse this panel, with a second section for per-skirmish items such as
-// placed buildings.
+// Ported from the Map Extractor prototype. Its controls live in
+// inspector_controls.dart, shared with the skirmish setup's map inspector.
 
 import 'package:flutter/material.dart';
 import 'package:map_extractor_prototype/map_extractor.dart';
@@ -14,18 +13,10 @@ import '../../maps/hex_selection.dart';
 import '../../maps/map_editor_controller.dart';
 import '../../maps/map_sheet_draft.dart';
 import '../hud.dart';
+import 'inspector_controls.dart';
 import 'source_overlay_view.dart';
 
-/// Square-cornered button shape used across the map screens.
-const mapButtonShape = RoundedRectangleBorder(
-  borderRadius: BorderRadius.all(Radius.circular(2)),
-);
-
-const mapButtonText = TextStyle(
-  fontSize: 14,
-  fontWeight: FontWeight.w700,
-  letterSpacing: 1.2,
-);
+export 'inspector_controls.dart' show mapButtonShape, mapButtonText;
 
 const _body = TextStyle(
   fontSize: 14,
@@ -166,24 +157,13 @@ class HexInspector extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 20),
-        _Label(woods == null ? 'Woods (mixed)' : 'Woods'),
-        SegmentedButton<Woods>(
-          segments: const [
-            ButtonSegment(value: Woods.none, label: Text('None')),
-            ButtonSegment(value: Woods.light, label: Text('Light')),
-            ButtonSegment(value: Woods.heavy, label: Text('Heavy')),
-            ButtonSegment(value: Woods.ultraHeavy, label: Text('Ultra')),
-          ],
-          selected: {?woods},
-          emptySelectionAllowed: true,
-          onSelectionChanged: (s) {
-            if (s.isNotEmpty) edit((t) => t.copyWith(woods: s.first));
-          },
-          showSelectedIcon: false,
-          style: _segmentStyle,
+        InspectorLabel(woods == null ? 'Woods (mixed)' : 'Woods'),
+        WoodsSelector(
+          value: woods,
+          onChanged: (w) => edit((t) => t.copyWith(woods: w)),
         ),
         const SizedBox(height: 16),
-        _Stepper(
+        InspectorStepper(
           label: 'Level',
           value: level ?? primaryTerrain.level,
           mixed: level == null,
@@ -191,7 +171,7 @@ class HexInspector extends StatelessWidget {
           max: 10,
           onChanged: (v) => edit((t) => t.copyWith(level: v)),
         ),
-        _Stepper(
+        InspectorStepper(
           label: 'Water depth',
           value: depth ?? primaryTerrain.waterDepth,
           mixed: depth == null,
@@ -200,13 +180,13 @@ class HexInspector extends StatelessWidget {
           onChanged: (v) => edit((t) => t.copyWith(waterDepth: v)),
         ),
         const SizedBox(height: 12),
-        const _Label('Features'),
+        const InspectorLabel('Features'),
         Wrap(
           spacing: 6,
           runSpacing: 6,
           children: [
             for (final f in TerrainFeature.values)
-              _FeatureChip(
+              FeatureChip(
                 feature: f,
                 all: terrains.every((t) => t.features.contains(f)),
                 some: terrains.any((t) => t.features.contains(f)),
@@ -242,15 +222,6 @@ class HexInspector extends StatelessWidget {
       ],
     );
   }
-
-  static final _segmentStyle = SegmentedButton.styleFrom(
-    shape: mapButtonShape,
-    selectedBackgroundColor: AppColors.accent,
-    selectedForegroundColor: AppColors.background,
-    foregroundColor: AppColors.textSecondary,
-    side: const BorderSide(color: AppColors.borderStrong),
-    visualDensity: VisualDensity.compact,
-  );
 
   /// One section per photo that shows [hex]: a close-up and the OCR lines
   /// read from that photo.
@@ -313,112 +284,5 @@ class HexInspector extends StatelessWidget {
       out.add(const Text('No photo covers this hex.', style: _hint));
     }
     return out;
-  }
-}
-
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(text.toUpperCase(), style: HudText.sectionLabel),
-  );
-}
-
-class _FeatureChip extends StatelessWidget {
-  const _FeatureChip({
-    required this.feature,
-    required this.all,
-    required this.some,
-    required this.onToggle,
-  });
-
-  final TerrainFeature feature;
-  final bool all;
-  final bool some;
-
-  /// Called with [all]: true removes the feature, false adds it.
-  final ValueChanged<bool> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = feature.name[0].toUpperCase() + feature.name.substring(1);
-    return FilterChip(
-      label: Text(some && !all ? '$name (some)' : name),
-      selected: all,
-      showCheckmark: false,
-      onSelected: (_) => onToggle(all),
-      shape: mapButtonShape,
-      side: BorderSide(color: all ? AppColors.accent : AppColors.chipBorder),
-      backgroundColor: AppColors.panelRaised,
-      selectedColor: AppColors.accent.withAlpha(48),
-      labelStyle: TextStyle(
-        fontSize: 13,
-        color: all ? AppColors.accent : AppColors.textSecondary,
-      ),
-      visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
-class _Stepper extends StatelessWidget {
-  const _Stepper({
-    required this.label,
-    required this.value,
-    required this.mixed,
-    required this.min,
-    required this.max,
-    required this.onChanged,
-  });
-
-  final String label;
-  final int value;
-  final bool mixed;
-  final int min;
-  final int max;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            (mixed ? '$label (mixed)' : label).toUpperCase(),
-            style: HudText.sectionLabel,
-          ),
-        ),
-        IconButton(
-          tooltip: 'Decrease $label',
-          onPressed: value > min ? () => onChanged(value - 1) : null,
-          icon: const Icon(Icons.remove),
-        ),
-        Container(
-          width: 40,
-          height: 32,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.panelRaised,
-            border: Border.all(color: AppColors.cellBorder),
-          ),
-          child: Text(
-            mixed ? '–' : '$value',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.text,
-            ),
-          ),
-        ),
-        IconButton(
-          tooltip: 'Increase $label',
-          onPressed: value < max ? () => onChanged(value + 1) : null,
-          icon: const Icon(Icons.add),
-        ),
-      ],
-    );
   }
 }

@@ -11,8 +11,9 @@
 //     combine on the same hex.
 //   - Building: a placed building wins over everything. The hex plays as
 //     an empty level 0 hex holding the building, which matches a model
-//     building set on the physical board. Buildings are indestructible for
-//     now; durability (CF, Total War p. 165) comes later.
+//     building set on the physical board. Each building has a height in
+//     levels above that ground, set per hex. Buildings are indestructible
+//     for now; durability (CF, Total War p. 165) comes later.
 // During setup each layer is stored on its own, so removing a building
 // brings back the environment and level underneath it. Confirming the
 // skirmish locks the overlay in (see lockIn): from then on the ground
@@ -25,7 +26,8 @@ import '../maps/map_repository.dart';
 
 /// The overlay for one hex. Each layer is independent.
 class HexOverlay {
-  const HexOverlay({this.environment, this.building = false, this.level});
+  const HexOverlay({this.environment, this.buildingHeight, this.level})
+    : assert(buildingHeight == null || buildingHeight > 0);
 
   static const none = HexOverlay();
 
@@ -33,13 +35,18 @@ class HexOverlay {
   /// and stored as 0.
   final HexTerrain? environment;
 
-  /// A building placed on the hex.
-  final bool building;
+  /// Height in levels of a building placed on the hex. Null means no
+  /// building.
+  final int? buildingHeight;
+
+  /// True when a building stands on the hex.
+  bool get building => buildingHeight != null;
 
   /// Replaces the printed level. Null keeps the printed level.
   final int? level;
 
-  bool get isEmpty => environment == null && !building && level == null;
+  bool get isEmpty =>
+      environment == null && buildingHeight == null && level == null;
 
   static const _buildingHex = HexTerrain(features: {TerrainFeature.building});
 
@@ -51,17 +58,19 @@ class HexOverlay {
 
   HexOverlay copyWith({
     HexTerrain? Function()? environment,
-    bool? building,
+    int? Function()? buildingHeight,
     int? Function()? level,
   }) => HexOverlay(
     environment: environment == null ? this.environment : environment(),
-    building: building ?? this.building,
+    buildingHeight: buildingHeight == null
+        ? this.buildingHeight
+        : buildingHeight(),
     level: level == null ? this.level : level(),
   );
 
   Map<String, Object?> toJson() => {
     if (environment case final e?) 'environment': e.toJson(),
-    if (building) 'building': true,
+    'building': ?buildingHeight,
     'level': ?level,
   };
 
@@ -71,7 +80,12 @@ class HexOverlay {
             (json['environment'] as Map).cast<String, Object?>(),
           )
         : null,
-    building: json['building'] as bool? ?? false,
+    // Older saves stored `true` before buildings had a height.
+    buildingHeight: switch (json['building']) {
+      true => SkirmishMap.defaultBuildingHeight,
+      final num h when h > 0 => h.toInt(),
+      _ => null,
+    },
     level: (json['level'] as num?)?.toInt(),
   );
 
@@ -79,11 +93,11 @@ class HexOverlay {
   bool operator ==(Object other) =>
       other is HexOverlay &&
       other.environment == environment &&
-      other.building == building &&
+      other.buildingHeight == buildingHeight &&
       other.level == level;
 
   @override
-  int get hashCode => Object.hash(environment, building, level);
+  int get hashCode => Object.hash(environment, buildingHeight, level);
 }
 
 class SkirmishMap {
@@ -153,8 +167,31 @@ class SkirmishMap {
             o.copyWith(environment: () => environment?.copyWith(level: 0)),
       );
 
-  void setBuilding(Iterable<HexCoord> hexes, bool building) =>
-      _update(hexes, (o, _) => o.copyWith(building: building));
+  /// Height given to a newly placed building.
+  static const defaultBuildingHeight = 1;
+
+  /// Places or removes a building. A placed building keeps its height if
+  /// the hex already has one, and otherwise gets [defaultBuildingHeight].
+  void setBuilding(Iterable<HexCoord> hexes, bool building) => _update(
+    hexes,
+    (o, _) => o.copyWith(
+      buildingHeight: () =>
+          building ? (o.buildingHeight ?? defaultBuildingHeight) : null,
+    ),
+  );
+
+  /// Sets the height of the buildings among [hexes]. Hexes without a
+  /// building are left alone.
+  void setBuildingHeight(Iterable<HexCoord> hexes, int height) {
+    if (height < 1) throw ArgumentError.value(height, 'height', 'must be >= 1');
+    _update(
+      hexes,
+      (o, _) => o.building ? o.copyWith(buildingHeight: () => height) : o,
+    );
+  }
+
+  /// Height of the building on [hex], or null when there is none.
+  int? buildingHeightAt(HexCoord hex) => overlayAt(hex).buildingHeight;
 
   /// Sets the absolute level for this skirmish. Null, or the printed
   /// level, goes back to the printed level.
@@ -164,9 +201,42 @@ class SkirmishMap {
         o.copyWith(level: () => level == printed.level ? null : level),
   );
 
+  /// The woods, water, and features the hex plays with, at level 0: the
+  /// override, or the printed environment. Ignores a placed building.
+  HexTerrain environmentAt(HexCoord hex) =>
+      (overlayAt(hex).environment ?? source.sheet.terrainAt(hex)).copyWith(
+        level: 0,
+      );
+
+  /// Edits each hex's current environment with [f], so a change to one
+  /// part (say, the woods) keeps each hex's other parts. A result equal to
+  /// the printed environment drops the override.
+  void updateEnvironment(
+    Iterable<HexCoord> hexes,
+    HexTerrain Function(HexTerrain environment) f,
+  ) => _update(hexes, (o, printed) {
+    final base = printed.copyWith(level: 0);
+    final next = f(o.environment ?? base).copyWith(level: 0);
+    return o.copyWith(environment: () => next == base ? null : next);
+  });
+
   /// Removes every layer from the hexes.
   void clear(Iterable<HexCoord> hexes) =>
       _update(hexes, (_, _) => HexOverlay.none);
+
+  /// Replaces the whole overlay, for undo and redo.
+  void restoreOverlay(Map<HexCoord, HexOverlay> overlay) {
+    _overlay
+      ..clear()
+      ..addAll({
+        for (final e in overlay.entries)
+          if (!e.value.isEmpty) e.key: e.value,
+      });
+  }
+
+  /// An independent copy with the same source and overlay, for editing
+  /// that can be cancelled.
+  SkirmishMap copy() => SkirmishMap(source, _overlay);
 
   /// Called when the skirmish is confirmed. Replaces whatever is under each
   /// building with empty level 0 ground, so removing the building later
@@ -175,9 +245,9 @@ class SkirmishMap {
   void lockIn() {
     for (final MapEntry(key: hex, value: o) in _overlay.entries.toList()) {
       if (!o.building) continue;
-      _overlay[hex] = const HexOverlay(
+      _overlay[hex] = HexOverlay(
         environment: HexTerrain.clear,
-        building: true,
+        buildingHeight: o.buildingHeight,
         level: 0,
       );
     }

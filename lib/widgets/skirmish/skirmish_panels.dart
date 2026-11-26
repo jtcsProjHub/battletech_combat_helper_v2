@@ -113,9 +113,13 @@ class PlayerLancePanel extends StatelessWidget {
 
 /// The chosen map: name, size, and a thumbnail filling the space.
 class MapPreview extends StatelessWidget {
-  const MapPreview({super.key, required this.map});
+  const MapPreview({super.key, required this.map, this.thumbnail});
 
   final SavedMap map;
+
+  /// Replaces the default thumbnail of [map]'s sheet, for callers that
+  /// draw more on the map.
+  final Widget? thumbnail;
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +150,7 @@ class MapPreview extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             color: AppColors.background,
-            child: MapThumbnail(sheet: map.sheet),
+            child: thumbnail ?? MapThumbnail(sheet: map.sheet),
           ),
         ),
       ],

@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart' show kDoubleTapMinTime;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:map_extractor_prototype/map_extractor.dart';
@@ -12,9 +13,11 @@ import 'package:battletech_combat_helper_v2/maps/map_repository.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
 import 'package:battletech_combat_helper_v2/screens/load_skirmish_screen.dart';
+import 'package:battletech_combat_helper_v2/screens/skirmish_map_editor_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/skirmish_play_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/skirmish_setup_screen.dart';
 import 'package:battletech_combat_helper_v2/skirmish/skirmish_repository.dart';
+import 'package:battletech_combat_helper_v2/widgets/skirmish/skirmish_map_view.dart';
 
 void main() {
   const mechs = [
@@ -131,6 +134,44 @@ void main() {
     await tester.pumpAndSettle();
     await tapText(tester, 'LEAVE');
     expect(find.text('SELECT OPERATION'), findsOneWidget);
+  });
+
+  testWidgets('the overview opens the map editor and keeps its changes', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await openNewSkirmish(tester);
+    await tapText(tester, 'ALPHA');
+    await tapText(tester, 'NEXT: PLAYER 2');
+    await tester.tap(find.text('BRAVO').last);
+    await tester.pumpAndSettle();
+    await tapText(tester, 'NEXT: MAP');
+    await tapText(tester, 'HILLS');
+    await tapText(tester, 'NEXT: REVIEW');
+    expect(find.textContaining('As printed.'), findsOneWidget);
+
+    await tapText(tester, 'EDIT MAP');
+    expect(find.byType(SkirmishMapEditorScreen), findsOneWidget);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Building');
+    await tapText(tester, 'DONE');
+
+    expect(find.byType(SkirmishSetupScreen), findsOneWidget);
+    expect(find.text('9 hexes changed for this skirmish.'), findsOneWidget);
+    // The preview draws the overlay, with building heights.
+    expect(find.byType(SkirmishMapThumbnail), findsOneWidget);
+    final saved = (await skirmishes.loadAll()).single;
+    expect(saved.map!.overlay.length, 9);
+
+    // Picking the same map again keeps the changes.
+    await tester.tap(find.text('MAP').first);
+    await tester.pumpAndSettle();
+    await tapText(tester, 'HILLS');
+    await tapText(tester, 'NEXT: REVIEW');
+    expect(find.text('9 hexes changed for this skirmish.'), findsOneWidget);
   });
 
   testWidgets('back saves a started setup, but not an empty one', (

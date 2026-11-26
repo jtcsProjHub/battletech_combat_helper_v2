@@ -23,14 +23,17 @@ import '../skirmish/skirmish.dart';
 import '../skirmish/skirmish_map.dart';
 import '../widgets/hud.dart';
 import '../widgets/lance_roster_detail.dart';
+import '../widgets/map/inspector_controls.dart';
 import '../widgets/map/new_map_form.dart';
 import '../widgets/new_lance_form.dart';
 import '../widgets/saved_lance_list.dart';
 import '../widgets/skirmish/skirmish_autosave.dart';
+import '../widgets/skirmish/skirmish_map_view.dart';
 import '../widgets/skirmish/skirmish_panels.dart';
 import '../widgets/skirmish/skirmish_scaffold.dart';
 import 'lance_editor_screen.dart';
 import 'map_editor_screen.dart';
+import 'skirmish_map_editor_screen.dart';
 import 'skirmish_play_screen.dart';
 
 class SkirmishSetupScreen extends ConsumerStatefulWidget {
@@ -175,10 +178,48 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
 
   // --- Map ----------------------------------------------------------------
 
-  void _pickMap(SavedMap map) => setState(() {
-    _s.map = SkirmishMap(map);
-    _creating = false;
-  });
+  /// Picks [map] with a fresh overlay. Picking the current map again keeps
+  /// its overlay; replacing a map that has changes asks first.
+  Future<void> _pickMap(SavedMap map) async {
+    final current = _s.map;
+    if (current != null && current.id == map.id) {
+      setState(() => _creating = false);
+      return;
+    }
+    if (current != null &&
+        current.overlay.isNotEmpty &&
+        !await _ask(
+          title: 'Replace ${current.name}?',
+          body:
+              'The changes made to ${current.name} for this skirmish '
+              '(${_changedHexes(current)}) are lost.',
+          action: 'REPLACE',
+        )) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _s.map = SkirmishMap(map);
+      _creating = false;
+    });
+  }
+
+  static String _changedHexes(SkirmishMap map) {
+    final n = map.overlay.length;
+    return n == 1 ? '1 hex' : '$n hexes';
+  }
+
+  /// Opens the standalone map overlay editor. Done replaces the overlay and
+  /// saves the skirmish.
+  Future<void> _editMap() async {
+    final map = _s.map;
+    if (map == null) return;
+    final overlay = await SkirmishMapEditorScreen.open(context, map);
+    if (overlay == null || !mounted) return;
+    setState(() => map.restoreOverlay(overlay));
+    final error = await saveSkirmish();
+    if (error != null) _snack('Could not save the skirmish: $error');
+  }
 
   /// Opens the map editor for a new sheet. If it was saved there, it is
   /// picked when the editor closes.
@@ -197,7 +238,7 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
       return;
     }
     final saved = maps.where((m) => m.id == map.id).firstOrNull;
-    if (saved != null && mounted) _pickMap(saved);
+    if (saved != null && mounted) await _pickMap(saved);
   }
 
   // --- Balancing ----------------------------------------------------------
@@ -417,7 +458,10 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
         onCancel: () => setState(() => _creating = false),
       );
     } else if (_s.map case final map?) {
-      top = MapPreview(map: map.mergedSaved);
+      top = MapPreview(
+        map: map.mergedSaved,
+        thumbnail: SkirmishMapThumbnail(map: map),
+      );
     } else {
       top = const _Prompt(
         title: 'Map',
@@ -459,7 +503,7 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
   }
 
   /// The matchup and the map. Lance balancing happens in the player
-  /// columns; map overlays are still to come.
+  /// columns; map changes happen in the standalone map editor.
   Widget _overviewCenter() {
     final map = _s.map;
     return Padding(
@@ -482,8 +526,44 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
           Expanded(
             child: map == null
                 ? const _Prompt(title: 'Map', body: 'No map chosen yet.')
-                : MapPreview(map: map.mergedSaved),
+                : MapPreview(
+                    map: map.mergedSaved,
+                    thumbnail: SkirmishMapThumbnail(map: map),
+                  ),
           ),
+          if (map != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    map.overlay.isEmpty
+                        ? 'As printed. Place buildings or change terrain to '
+                              'match the table.'
+                        : '${_changedHexes(map)} changed for this skirmish.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: map.overlay.isEmpty
+                          ? AppColors.textDim
+                          : overlayMarkColorLight,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _editMap,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(150, 44),
+                    shape: mapButtonShape,
+                    foregroundColor: AppColors.accent,
+                    side: const BorderSide(color: AppColors.accent),
+                  ),
+                  icon: const Icon(Icons.edit_location_alt, size: 18),
+                  label: const Text('EDIT MAP', style: mapButtonText),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

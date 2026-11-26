@@ -250,6 +250,38 @@ void main() {
       expect(SkirmishMap.fromJson(m.toJson()).overlay, m.overlay);
     });
 
+    test('buildings have a height, set only on building hexes', () {
+      final m = SkirmishMap(printed)..setBuilding([hill], true);
+      expect(m.buildingHeightAt(hill), SkirmishMap.defaultBuildingHeight);
+      expect(m.buildingHeightAt(woods), isNull);
+
+      m.setBuildingHeight([hill, woods], 4);
+      expect(m.buildingHeightAt(hill), 4);
+      expect(m.overlayAt(woods), HexOverlay.none);
+
+      // Placing again keeps the height; removing drops it.
+      m.setBuilding([hill], true);
+      expect(m.buildingHeightAt(hill), 4);
+      m.setBuilding([hill], false);
+      expect(m.overlay, isEmpty);
+      expect(() => m.setBuildingHeight([hill], 0), throwsArgumentError);
+    });
+
+    test('building height survives JSON and lock-in; old saves get 1', () {
+      final m = SkirmishMap(printed)
+        ..setBuilding([hill], true)
+        ..setBuildingHeight([hill], 3);
+      expect(SkirmishMap.fromJson(m.toJson()).buildingHeightAt(hill), 3);
+
+      m.lockIn();
+      expect(m.buildingHeightAt(hill), 3);
+      expect(m.terrainAt(hill).level, 0);
+
+      final legacy = HexOverlay.fromJson({'building': true});
+      expect(legacy.buildingHeight, SkirmishMap.defaultBuildingHeight);
+      expect(HexOverlay.fromJson({'building': false}).building, isFalse);
+    });
+
     test('hexes off the sheet are ignored, and clear removes every layer', () {
       final m = SkirmishMap(printed)
         ..setBuilding([const HexCoord(9, 9)], true)
@@ -269,6 +301,56 @@ void main() {
       expect(loaded.overlay, m.overlay);
       expect(loaded.terrainAt(hill), m.terrainAt(hill));
       expect(loaded.merged.hexes, m.merged.hexes);
+    });
+
+    test('updateEnvironment edits each hex from its own environment', () {
+      final m = SkirmishMap(printed)
+        ..updateEnvironment([hill, woods], (e) => e.copyWith(waterDepth: 1));
+      // Each hex keeps its other parts; levels are untouched.
+      expect(
+        m.terrainAt(hill),
+        const HexTerrain(
+          level: 2,
+          waterDepth: 1,
+          features: {TerrainFeature.rough},
+        ),
+      );
+      expect(
+        m.terrainAt(woods),
+        const HexTerrain(woods: Woods.heavy, waterDepth: 1),
+      );
+      expect(m.environmentAt(hill).level, 0);
+
+      // Going back to the printed environment drops the override.
+      m.updateEnvironment([hill, woods], (e) => e.copyWith(waterDepth: 0));
+      expect(m.overlay, isEmpty);
+    });
+
+    test('updateEnvironment keeps the level and building layers', () {
+      final m = SkirmishMap(printed)
+        ..setLevel([hill], 4)
+        ..setBuilding([woods], true)
+        ..updateEnvironment([
+          hill,
+          woods,
+        ], (e) => e.copyWith(woods: Woods.light));
+      expect(m.terrainAt(hill).level, 4);
+      expect(m.terrainAt(hill).woods, Woods.light);
+      expect(m.terrainAt(woods).features, {TerrainFeature.building});
+      m.setBuilding([woods], false);
+      expect(m.terrainAt(woods).woods, Woods.light);
+    });
+
+    test('copy is independent and restoreOverlay rewinds', () {
+      final m = SkirmishMap(printed)..setLevel([hill], 3);
+      final before = m.overlay;
+      final c = m.copy()..setBuilding([woods], true);
+      expect(m.overlay, before);
+      expect(c.overlay.length, 2);
+
+      c.restoreOverlay(before);
+      expect(c.overlay, before);
+      expect(identical(c.source, m.source), isTrue);
     });
 
     test('refreshing the sheet from its source keeps the overlay', () {

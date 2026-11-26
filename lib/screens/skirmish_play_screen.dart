@@ -10,6 +10,7 @@ import '../app_theme.dart';
 import '../mech_library.dart';
 import '../skirmish/skirmish.dart';
 import '../widgets/skirmish/skirmish_autosave.dart';
+import '../widgets/skirmish/skirmish_map_view.dart';
 import '../widgets/skirmish/skirmish_panels.dart';
 import '../widgets/skirmish/skirmish_scaffold.dart';
 
@@ -110,7 +111,10 @@ class _SkirmishPlayScreenState extends ConsumerState<SkirmishPlayScreen>
               padding: const EdgeInsets.all(24),
               child: map == null
                   ? const SizedBox.shrink()
-                  : MapPreview(map: map.mergedSaved),
+                  : MapPreview(
+                      map: map.mergedSaved,
+                      thumbnail: SkirmishMapThumbnail(map: map),
+                    ),
             ),
           ),
           (label: 'PLAYER 2', child: units(1)),
