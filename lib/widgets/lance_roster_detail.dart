@@ -3,6 +3,11 @@
 // large card per mech with its pilot. Read-only by default; editable mode
 // adds remove buttons, pilot editing, and the open slots. Used by Edit Lance and New Skirmish. The
 // builder keeps its compact LanceRosterPanel.
+//
+// Two optional hooks let a caller build on the roster without changing the
+// cards: [LanceRosterDetail.cardWrapper] wraps each card (the skirmish
+// balancing controls sit under it this way), and
+// [LanceRosterDetail.headerFooter] adds a line to the bottom of the header.
 
 import 'package:flutter/material.dart';
 
@@ -14,9 +19,14 @@ import '../mech_data.dart';
 import '../mech_labels.dart';
 import '../mech_library.dart';
 import '../pilot_data.dart';
+import 'gear_chip.dart';
 import 'hud.dart';
 import 'mech_thumbnail.dart';
 import 'pilot_widgets.dart';
+
+/// Wraps the card for the slot at [slotIndex] in the lance's slots.
+typedef MechCardWrapper =
+    Widget Function(BuildContext context, int slotIndex, Widget card);
 
 /// The header and the SELECTED label stay put while the mech cards scroll
 /// below them, so give it a bounded height (for example inside [Expanded]),
@@ -30,6 +40,8 @@ class LanceRosterDetail extends StatelessWidget {
     this.onRemove,
     this.onEditPilot,
     this.onSelect,
+    this.cardWrapper,
+    this.headerFooter,
   });
 
   final Lance lance;
@@ -46,12 +58,20 @@ class LanceRosterDetail extends StatelessWidget {
   /// Called when a card is tapped, for example to show a preview.
   final ValueChanged<Mech>? onSelect;
 
+  /// Wraps each card. Null shows the cards as they are.
+  final MechCardWrapper? cardWrapper;
+
+  /// Shown below the stat boxes in the header, which stays put while the
+  /// cards scroll.
+  final Widget? headerFooter;
+
   @override
   Widget build(BuildContext context) {
     final totals = LanceTotals(lance, library);
     final remove = editable ? onRemove : null;
     final editPilot = editable ? onEditPilot : null;
     final select = onSelect;
+    final wrap = cardWrapper;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -59,7 +79,7 @@ class LanceRosterDetail extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Header(totals: totals, compact: compact),
+            _Header(totals: totals, compact: compact, footer: headerFooter),
             // Read-only, every card is the roster, so the label adds nothing.
             if (editable) ...[
               const SizedBox(height: 20),
@@ -74,19 +94,28 @@ class LanceRosterDetail extends StatelessWidget {
                   if (totals.entries.isEmpty)
                     const _Note('No mechs in this lance yet.')
                   else
-                    for (final (mech: m, :pilot) in totals.entries) ...[
-                      _MechCard(
-                        mech: m,
-                        pilot: pilot,
-                        compact: compact,
-                        onRemove: remove == null ? null : () => remove(m.id),
-                        onEditPilot: editPilot == null
-                            ? null
-                            : () => editPilot(m.id),
-                        onTap: select == null ? null : () => select(m),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
+                    // Same mechs as totals.entries, with their slot index.
+                    for (final (i, slot) in lance.slots.indexed)
+                      if (library.byId(slot.mechId) case final m?) ...[
+                        Builder(
+                          builder: (context) {
+                            final card = _MechCard(
+                              mech: m,
+                              pilot: slot.pilot,
+                              compact: compact,
+                              onRemove: remove == null
+                                  ? null
+                                  : () => remove(m.id),
+                              onEditPilot: editPilot == null
+                                  ? null
+                                  : () => editPilot(m.id),
+                              onTap: select == null ? null : () => select(m),
+                            );
+                            return wrap == null ? card : wrap(context, i, card);
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                   const SizedBox(height: 10),
                   _Footer(totals: totals, editable: editable),
                 ],
@@ -110,10 +139,11 @@ const _dimSmall = TextStyle(
 );
 
 class _Header extends StatelessWidget {
-  const _Header({required this.totals, required this.compact});
+  const _Header({required this.totals, required this.compact, this.footer});
 
   final LanceTotals totals;
   final bool compact;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +241,7 @@ class _Header extends StatelessWidget {
               ],
             ],
           ),
+          if (footer case final f?) ...[SizedBox(height: compact ? 10 : 12), f],
         ],
       ),
     );
@@ -494,7 +525,11 @@ class _MechCard extends StatelessWidget {
                                   spacing: 6,
                                   runSpacing: 6,
                                   children: [
-                                    for (final g in groups) _WeaponChip(g),
+                                    for (final g in groups)
+                                      GearChip(
+                                        quantity: g.quantity,
+                                        name: g.weapon.type,
+                                      ),
                                   ],
                                 ),
                               ],
@@ -665,38 +700,6 @@ class _StatCell extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _WeaponChip extends StatelessWidget {
-  const _WeaponChip(this.group);
-
-  final WeaponGroup group;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.panelActive,
-        border: Border.all(color: AppColors.chipBorder),
-      ),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: '${group.quantity}×',
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: AppColors.accent,
-              ),
-            ),
-            TextSpan(text: ' ${group.weapon.type}'),
-          ],
-        ),
-        style: const TextStyle(fontSize: 13, color: AppColors.text),
       ),
     );
   }

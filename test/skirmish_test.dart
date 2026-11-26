@@ -134,6 +134,27 @@ void main() {
     expect(s.player1.lance!.name, 'Alpha Mk II');
   });
 
+  test('an adjusted lance is kept through refreshes and saves', () async {
+    final s = ready();
+    final balanced = lance('Alpha').copyWith(
+      slots: const [LanceSlot(mechId: 'archer', pilot: Pilot(gunnery: 2))],
+    );
+    s.player1.adjust(balanced);
+
+    final edited = lance('Alpha').copyWith(name: 'Alpha Mk II');
+    expect(s.refreshFromSources(lances: [edited], maps: const []), isFalse);
+    expect(s.player1.lance, same(balanced));
+
+    final loaded = Skirmish.fromJson(s.toJson());
+    expect(loaded.player1.adjusted, isTrue);
+    expect(loaded.player2.adjusted, isFalse);
+    expect(loaded.player1.lance!.slots.single.pilot.gunnery, 2);
+
+    // Picking a lance again starts over from the precon.
+    loaded.player1.pick(edited);
+    expect(loaded.player1.adjusted, isFalse);
+  });
+
   group('SkirmishMap merge rules', () {
     const hill = HexCoord(1, 1); // printed level 2
     const woods = HexCoord(2, 1);

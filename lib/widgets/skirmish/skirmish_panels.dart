@@ -5,11 +5,13 @@
 import 'package:flutter/material.dart';
 
 import '../../app_theme.dart';
+import '../../history/change_history.dart';
 import '../../lance.dart';
 import '../../maps/map_repository.dart';
 import '../../mech_library.dart';
 import '../hud.dart';
 import '../lance_roster_detail.dart';
+import 'lance_balancing_roster.dart';
 import '../map/hex_map_view.dart';
 import '../map/saved_map_list.dart' show mapSummary;
 
@@ -46,6 +48,8 @@ class SkirmishColumnHeader extends StatelessWidget {
 }
 
 /// A player's chosen lance in full, or a note that it is not chosen yet.
+/// With [onLanceChanged] the roster can be balanced (variant swaps, pilot
+/// changes); without it, it is read-only.
 class PlayerLancePanel extends StatelessWidget {
   const PlayerLancePanel({
     super.key,
@@ -53,6 +57,9 @@ class PlayerLancePanel extends StatelessWidget {
     required this.lance,
     required this.library,
     this.emptyText = 'No lance chosen yet.',
+    this.onLanceChanged,
+    this.savedBattleValue,
+    this.history,
   });
 
   final String label;
@@ -60,10 +67,21 @@ class PlayerLancePanel extends StatelessWidget {
   final MechLibrary? library;
   final String emptyText;
 
+  /// Called with the balanced lance. Null keeps the roster read-only.
+  final ValueChanged<Lance>? onLanceChanged;
+
+  /// BV of the saved lance [lance] was picked from; see
+  /// LanceBalancingRoster.savedBattleValue.
+  final int? savedBattleValue;
+
+  /// Undo history for the balancing; see LanceBalancingRoster.history.
+  final ChangeHistory<Lance>? history;
+
   @override
   Widget build(BuildContext context) {
     final l = lance;
     final lib = library;
+    final balance = onLanceChanged;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -77,7 +95,15 @@ class PlayerLancePanel extends StatelessWidget {
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else
             Expanded(
-              child: LanceRosterDetail(lance: l, library: lib),
+              child: balance == null
+                  ? LanceRosterDetail(lance: l, library: lib)
+                  : LanceBalancingRoster(
+                      lance: l,
+                      library: lib,
+                      onChanged: balance,
+                      savedBattleValue: savedBattleValue,
+                      history: history,
+                    ),
             ),
         ],
       ),

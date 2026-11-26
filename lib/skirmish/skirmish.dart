@@ -7,7 +7,8 @@
 // The lances and the map are copies taken when they are picked, so later
 // edits to a precon or a saved map never change a game in progress. While
 // the skirmish is still in setup, a copy is refreshed from its precon when
-// the skirmish is loaded (see Skirmish.refreshFromSources).
+// the skirmish is loaded (see Skirmish.refreshFromSources), unless it was
+// adjusted on the overview step (variant swaps, pilot changes).
 
 import 'package:uuid/uuid.dart';
 
@@ -126,16 +127,34 @@ Map<Location, int> _locationsFromJson(Object? json) {
 
 /// One side of the skirmish: its lance and, once confirmed, its units.
 class SkirmishPlayer {
-  SkirmishPlayer({this.lance, List<SkirmishUnit>? units}) : units = units ?? [];
+  SkirmishPlayer({this.lance, this.adjusted = false, List<SkirmishUnit>? units})
+    : units = units ?? [];
 
   /// Copy of the chosen precon. Its id is the precon's id.
   Lance? lance;
+
+  /// True once [lance] was changed for this skirmish (variant swaps, pilot
+  /// changes). An adjusted lance is no longer refreshed from its precon.
+  bool adjusted;
+
+  /// Picks [chosen] as the lance, dropping any adjustments.
+  void pick(Lance chosen) {
+    lance = chosen;
+    adjusted = false;
+  }
+
+  /// Replaces the lance with an adjusted copy of it.
+  void adjust(Lance changed) {
+    lance = changed;
+    adjusted = true;
+  }
 
   /// One per mech in [lance], in slot order. Empty until confirmed.
   final List<SkirmishUnit> units;
 
   Map<String, dynamic> toJson() => {
     'lance': lance?.toJson(),
+    'adjusted': adjusted,
     'units': [for (final u in units) u.toJson()],
   };
 
@@ -143,6 +162,7 @@ class SkirmishPlayer {
     lance: json['lance'] is Map<String, dynamic>
         ? Lance.fromJson(json['lance'] as Map<String, dynamic>)
         : null,
+    adjusted: json['adjusted'] as bool? ?? false,
     units: [
       for (final u in (json['units'] as List<dynamic>? ?? const []))
         SkirmishUnit.fromJson(u as Map<String, dynamic>),
@@ -261,7 +281,7 @@ class Skirmish {
 
   /// During setup, replaces each lance and map copy with the current saved
   /// version, so edits made in the builders since the last session show
-  /// up. Copies whose source was deleted are kept. Does nothing once
+  /// up. Adjusted lances and copies whose source was deleted are kept. Does nothing once
   /// active. Returns true when any copy was replaced.
   bool refreshFromSources({
     required List<Lance> lances,
@@ -271,7 +291,7 @@ class Skirmish {
     var changed = false;
     for (final p in [player1, player2]) {
       final current = p.lance;
-      if (current == null) continue;
+      if (current == null || p.adjusted) continue;
       final latest = lances.where((l) => l.id == current.id).firstOrNull;
       if (latest != null && !identical(latest, current)) {
         p.lance = latest;

@@ -13,8 +13,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:map_extractor_prototype/map_extractor.dart';
 
 import '../app_theme.dart';
+import '../history/change_history.dart';
 import '../lance.dart';
 import '../lance_repository.dart';
+import '../lance_totals.dart';
 import '../maps/map_repository.dart';
 import '../mech_library.dart';
 import '../skirmish/skirmish.dart';
@@ -57,6 +59,10 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
   Lance? _inProgress;
 
   bool _leaving = false;
+
+  /// Each player's balancing changes this session, for Undo and Redo. Not
+  /// saved: a reopened skirmish starts with an empty history.
+  final _histories = [ChangeHistory<Lance>(), ChangeHistory<Lance>()];
 
   @override
   Skirmish get skirmish => _s;
@@ -127,7 +133,8 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
   // --- Lances -------------------------------------------------------------
 
   void _pickLance(int player, Lance lance) => setState(() {
-    _s.player(player).lance = lance;
+    _s.player(player).pick(lance);
+    _histories[player].clear();
     _creating = false;
     _inProgress = null;
   });
@@ -193,6 +200,17 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
     if (saved != null && mounted) _pickMap(saved);
   }
 
+  // --- Balancing ----------------------------------------------------------
+
+  /// BV of the saved lance the player picked, before any balancing. Null
+  /// when it was deleted or the data is still loading.
+  int? _savedBattleValue(int player, List<Lance>? saved, MechLibrary? library) {
+    final id = _s.player(player).lance?.id;
+    final source = saved?.where((l) => l.id == id).firstOrNull;
+    if (source == null || library == null) return null;
+    return LanceTotals(source, library).usedBattleValue;
+  }
+
   // --- Confirm ------------------------------------------------------------
 
   Future<void> _confirm() async {
@@ -215,13 +233,20 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
     final lances = ref.watch(savedLancesProvider);
     final maps = ref.watch(savedMapsProvider);
 
-    Widget playerPanel(int i) => PlayerLancePanel(
+    Widget playerPanel(int i, {bool balancing = false}) => PlayerLancePanel(
       label: 'Player ${i + 1}',
       lance: _s.player(i).lance,
       library: library,
       emptyText: i == 0
           ? 'Player 1 has not chosen a lance.'
           : 'Player 2 chooses a lance after Player 1.',
+      onLanceChanged: balancing
+          ? (l) => setState(() => _s.player(i).adjust(l))
+          : null,
+      savedBattleValue: balancing
+          ? _savedBattleValue(i, lances.value, library)
+          : null,
+      history: balancing ? _histories[i] : null,
     );
 
     final List<SkirmishColumn> columns = switch (_step) {
@@ -241,9 +266,9 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
         (label: 'PLAYER 2', child: playerPanel(1)),
       ],
       SetupStep.overview => [
-        (label: 'PLAYER 1', child: playerPanel(0)),
+        (label: 'PLAYER 1', child: playerPanel(0, balancing: true)),
         (label: 'MAP', child: _overviewCenter()),
-        (label: 'PLAYER 2', child: playerPanel(1)),
+        (label: 'PLAYER 2', child: playerPanel(1, balancing: true)),
       ],
     };
 
@@ -433,8 +458,8 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
     );
   }
 
-  /// Placeholder for the balancing tools (variant swaps, pilot tweaks, map
-  /// overlays); for now the map and a reminder of the matchup.
+  /// The matchup and the map. Lance balancing happens in the player
+  /// columns; map overlays are still to come.
   Widget _overviewCenter() {
     final map = _s.map;
     return Padding(

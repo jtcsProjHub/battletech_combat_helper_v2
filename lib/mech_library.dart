@@ -13,16 +13,22 @@ class MechLibrary {
   MechLibrary(List<Mech> mechs)
     : mechs = List.unmodifiable(mechs),
       _byId = {for (final m in mechs) m.id: m},
+      _byChassis = _groupByChassis(mechs),
       _byIntroEra = _groupByIntroEra(mechs),
       _byAvailability = _groupByAvailability(mechs);
 
   final List<Mech> mechs;
   final Map<String, Mech> _byId;
+  final Map<String, List<Mech>> _byChassis;
   final Map<Era, List<Mech>> _byIntroEra;
   final Map<Era, Map<String, List<Mech>>>
   _byAvailability; // era -> faction -> mechs
 
   Mech? byId(String id) => _byId[id];
+
+  /// Every variant of [mech]'s chassis (same name), [mech] included, in
+  /// catalog order.
+  List<Mech> variantsOf(Mech mech) => _byChassis[mech.name] ?? [mech];
 
   /// Mechs introduced during [era]. Mechs with no known era are in no era.
   List<Mech> introducedIn(Era era) => _byIntroEra[era] ?? const [];
@@ -86,6 +92,14 @@ class MechLibrary {
       if (fieldedIn.any((fs) => faction == null || fs.contains(faction))) {
         result.add(m.techBase);
       }
+    }
+    return result;
+  }
+
+  static Map<String, List<Mech>> _groupByChassis(List<Mech> mechs) {
+    final result = <String, List<Mech>>{};
+    for (final m in mechs) {
+      result.putIfAbsent(m.name, () => []).add(m);
     }
     return result;
   }

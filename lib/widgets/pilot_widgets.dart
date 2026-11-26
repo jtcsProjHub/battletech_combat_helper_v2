@@ -1,6 +1,7 @@
 // File: lib/widgets/pilot_widgets.dart
 // The pilot row on the roster cards, the gunnery and piloting badges, and
-// the dialog that assigns a pilot to a mech. The badges follow the Force
+// the dialog that assigns a pilot to a mech (its fields are also used by the
+// skirmish balancing dropdown). The badges follow the Force
 // Pack pilot cards: a red shield for gunnery, a yellow chevron for piloting.
 
 import 'package:flutter/material.dart';
@@ -253,44 +254,17 @@ class _PilotDialogState extends State<_PilotDialog> {
       title: Text('Pilot · ${m.name} ${m.variant}'),
       content: SizedBox(
         width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              inputFormatters: [LengthLimitingTextInputFormatter(40)],
-              decoration: const InputDecoration(labelText: 'Name'),
-              onSubmitted: (_) => _save(),
-            ),
-            const SizedBox(height: 20),
-            _SkillStepper(
-              skill: PilotSkill.gunnery,
-              value: _gunnery,
-              onChanged: (v) => setState(() => _gunnery = v),
-            ),
-            const SizedBox(height: 12),
-            _SkillStepper(
-              skill: PilotSkill.piloting,
-              value: _piloting,
-              onChanged: (v) => setState(() => _piloting = v),
-            ),
-            const SizedBox(height: 16),
-            _BudgetPreview(
-              mech: m,
-              before: widget.pilot,
-              after: Pilot(gunnery: _gunnery, piloting: _piloting),
-              lance: widget.lance,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Lower is better. The standard pilot is Gunnery '
-              '${Pilot.defaultGunnery}, Piloting ${Pilot.defaultPiloting}.',
-              style: TextStyle(fontSize: 13, color: AppColors.textDim),
-            ),
-          ],
+        child: PilotEditorFields(
+          mech: m,
+          before: widget.pilot,
+          name: _name,
+          gunnery: _gunnery,
+          piloting: _piloting,
+          onGunneryChanged: (v) => setState(() => _gunnery = v),
+          onPilotingChanged: (v) => setState(() => _piloting = v),
+          lance: widget.lance,
+          autofocus: true,
+          onSubmitted: _save,
         ),
       ),
       actions: [
@@ -304,6 +278,85 @@ class _PilotDialogState extends State<_PilotDialog> {
           child: const Text('CANCEL'),
         ),
         FilledButton(onPressed: _save, child: const Text('SAVE')),
+      ],
+    );
+  }
+}
+
+/// The pilot's name, the gunnery and piloting steppers, and what the skills
+/// do to the mech's BV (and, with [lance], to the lance). Shared by the
+/// pilot dialog and the balancing dropdown; the caller owns the values.
+class PilotEditorFields extends StatelessWidget {
+  const PilotEditorFields({
+    super.key,
+    required this.mech,
+    required this.before,
+    required this.name,
+    required this.gunnery,
+    required this.piloting,
+    required this.onGunneryChanged,
+    required this.onPilotingChanged,
+    this.lance,
+    this.autofocus = false,
+    this.onSubmitted,
+  });
+
+  final Mech mech;
+
+  /// The pilot being edited, for the "before" side of the BV preview.
+  final Pilot before;
+
+  final TextEditingController name;
+  final int gunnery;
+  final int piloting;
+  final ValueChanged<int> onGunneryChanged;
+  final ValueChanged<int> onPilotingChanged;
+  final LanceTotals? lance;
+  final bool autofocus;
+
+  /// Called when Enter is pressed in the name field.
+  final VoidCallback? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final submit = onSubmitted;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: name,
+          autofocus: autofocus,
+          textCapitalization: TextCapitalization.words,
+          inputFormatters: [LengthLimitingTextInputFormatter(40)],
+          decoration: const InputDecoration(labelText: 'Name'),
+          onSubmitted: submit == null ? null : (_) => submit(),
+        ),
+        const SizedBox(height: 20),
+        _SkillStepper(
+          skill: PilotSkill.gunnery,
+          value: gunnery,
+          onChanged: onGunneryChanged,
+        ),
+        const SizedBox(height: 12),
+        _SkillStepper(
+          skill: PilotSkill.piloting,
+          value: piloting,
+          onChanged: onPilotingChanged,
+        ),
+        const SizedBox(height: 16),
+        _BudgetPreview(
+          mech: mech,
+          before: before,
+          after: Pilot(gunnery: gunnery, piloting: piloting),
+          lance: lance,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Lower is better. The standard pilot is Gunnery '
+          '${Pilot.defaultGunnery}, Piloting ${Pilot.defaultPiloting}.',
+          style: TextStyle(fontSize: 13, color: AppColors.textDim),
+        ),
       ],
     );
   }

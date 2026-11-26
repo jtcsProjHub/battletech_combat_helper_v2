@@ -21,6 +21,19 @@ class AppColors {
 
   /// Battle value over the lance target.
   static const overBudget = Color(0xFFFF7A6A);
+
+  /// Balancing: gear a variant removes or adds, and stats that get worse
+  /// or better.
+  static const removed = Color(0xFFFF7A6A);
+  static const removedFill = Color(0xFF2A1A19);
+  static const added = Color(0xFF7FD6A4);
+  static const addedFill = Color(0xFF16261D);
+
+  /// Balancing: a BV decrease (an increase uses [removed]).
+  static const decrease = Color(0xFF6CB6FF);
+
+  /// Balancing: a variant outside the lance's era or faction filters.
+  static const offFilter = Color(0xFFFFB46A);
 }
 
 ThemeData buildAppTheme() {
