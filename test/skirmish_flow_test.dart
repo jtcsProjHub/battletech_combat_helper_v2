@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/gestures.dart' show kDoubleTapMinTime;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +20,8 @@ import 'package:battletech_combat_helper_v2/screens/load_skirmish_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/skirmish_map_editor_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/skirmish_play_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/skirmish_setup_screen.dart';
+import 'package:battletech_combat_helper_v2/server/hotspot.dart';
+import 'package:battletech_combat_helper_v2/server/skirmish_host.dart';
 import 'package:battletech_combat_helper_v2/skirmish/skirmish_repository.dart';
 import 'package:battletech_combat_helper_v2/widgets/skirmish/skirmish_map_view.dart';
 
@@ -37,12 +42,14 @@ void main() {
   ];
 
   late MemorySkirmishRepository skirmishes;
+  late _FakeHost host;
 
   Future<void> pumpApp(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1600, 1000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     skirmishes = MemorySkirmishRepository();
+    host = _FakeHost();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -70,6 +77,7 @@ void main() {
             ]),
           ),
           skirmishRepositoryProvider.overrideWithValue(skirmishes),
+          skirmishHostFactoryProvider.overrideWithValue((_) => host),
         ],
         child: const MyApp(),
       ),
@@ -117,6 +125,20 @@ void main() {
 
     await tapText(tester, 'CONFIRM & START');
     expect(find.byType(SkirmishPlayScreen), findsOneWidget);
+
+    // Hosting starts and the join codes show first.
+    expect(host.starts, 1);
+    expect(find.text('SKIRMISH · JOIN THE GAME'), findsOneWidget);
+    expect(find.text('Network: TestNet'), findsOneWidget);
+    expect(find.text('http://10.42.0.1:8080/player/2'), findsOneWidget);
+    expect(find.text('0 of 2 players joined.'), findsOneWidget);
+    host.join(0);
+    await tester.pumpAndSettle();
+    expect(find.text('Player 1 joined'), findsOneWidget);
+    expect(find.text('1 of 2 players joined.'), findsOneWidget);
+
+    await tapText(tester, 'START NOW!');
+    expect(host.announced, isTrue);
     expect(find.text('SKIRMISH · TURN 1'), findsOneWidget);
     expect(find.text('ARCHER ARC-2R'), findsNWidgets(2));
 
@@ -133,8 +155,10 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
+    expect(host.stops, 0);
     await tapText(tester, 'LEAVE');
     expect(find.text('SELECT OPERATION'), findsOneWidget);
+    expect(host.stops, greaterThan(0));
   });
 
   testWidgets('the overview opens the map editor and keeps its changes', (
@@ -267,4 +291,43 @@ void main() {
     expect(await skirmishes.loadAll(), isEmpty);
     expect(find.textContaining('No saved skirmishes yet'), findsOneWidget);
   });
+}
+
+/// Hosting without a hotspot or sockets.
+class _FakeHost implements SkirmishHost {
+  int starts = 0;
+  int stops = 0;
+  bool announced = false;
+  final _connected = [0, 0];
+  final _presence = StreamController<List<int>>.broadcast();
+
+  void join(int player) {
+    _connected[player]++;
+    _presence.add(List.of(_connected));
+  }
+
+  @override
+  Future<HostSession> start() async {
+    starts++;
+    return HostSession(
+      network: HotspotInfo(
+        ssid: 'TestNet',
+        password: 'secret',
+        address: InternetAddress('10.42.0.1'),
+      ),
+      port: 8080,
+    );
+  }
+
+  @override
+  List<int> get connected => List.of(_connected);
+
+  @override
+  Stream<List<int>> get presence => _presence.stream;
+
+  @override
+  void announcePlaying() => announced = true;
+
+  @override
+  Future<void> stop() async => stops++;
 }

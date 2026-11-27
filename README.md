@@ -9,6 +9,13 @@ In contrast to other apps that I've tried to use, this one does not try to maint
 traditional data sheets. It is being designed to run on a laptop so that there is sufficient screen real-estate, with
 a custom reactive UI designed for space efficiency.
 
+During play the laptop acts as a game server. It shows the high-level game state and turn information, and switches to
+hotspot mode so players can connect their phones. Each player uses a Flutter Web client served by the laptop for their own inputs
+and detailed lance information. Clients don't load, save, or edit game data; that all stays on the laptop.
+
+To support this, the game logic (models, serialization, and rules) is being split from the UI into its own pure Dart package that both
+the server app and the web client can use.
+
 Each widget and screen is being iteratively designed with user feedback along the way from hand sketches, to concept mockups, through implementation.
 Workflows are being outlined based both on the basic "this is what the rules say" as well as taking notes about what players have actually
 been doing and saying when we get together to fine tune things like what information is important to see when, and what is just noise.
@@ -18,7 +25,8 @@ their website.
 
 ## Current Status
 
-Building out the data backend and the Lance Builder.
+Lance Builder, Map Builder, and skirmish setup are in place. Next up is splitting the game logic into a pure Dart package
+in preparation for the server and phone client design.
 
 ## Getting Started
 
