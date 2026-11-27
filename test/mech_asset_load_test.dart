@@ -12,6 +12,7 @@ import 'package:battletech_combat_helper_v2/ammo_rules.dart';
 import 'package:battletech_combat_helper_v2/mech_columns.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
+import 'package:battletech_combat_helper_v2/mech_library_loader.dart';
 import 'package:battletech_combat_helper_v2/location.dart';
 
 void main() {

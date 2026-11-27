@@ -7,6 +7,7 @@ import '../app_theme.dart';
 import '../lance.dart';
 import '../lance_repository.dart';
 import '../mech_library.dart';
+import '../mech_library_loader.dart';
 import '../widgets/hex_map_art.dart';
 import '../widgets/hud.dart';
 import '../widgets/lance_roster_detail.dart';

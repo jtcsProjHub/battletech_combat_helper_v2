@@ -5,7 +5,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'map_model.dart';
 
 import 'terrain_type.dart';
 

@@ -2,9 +2,6 @@
 // A compact Dart model for representing a BattleTech 'Mech.
 
 import 'dart:convert';
-import 'dart:io' show File;
-
-import 'package:flutter/services.dart' show rootBundle;
 
 import 'era.dart';
 import 'location.dart';
@@ -437,14 +434,4 @@ List<Mech> mechsFromJsonString(String jsonString) {
   return parsed
       .map((item) => Mech.fromJson(item as Map<String, dynamic>))
       .toList();
-}
-
-Future<List<Mech>> loadMechsFromAsset(String assetPath) async {
-  final jsonString = await rootBundle.loadString(assetPath);
-  return mechsFromJsonString(jsonString);
-}
-
-Future<List<Mech>> loadMechsFromFile(String filePath) async {
-  final jsonString = await File(filePath).readAsString();
-  return mechsFromJsonString(jsonString);
 }

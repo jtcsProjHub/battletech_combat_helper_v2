@@ -3,7 +3,7 @@
 // HexInspector and the skirmish setup's SkirmishMapInspector.
 
 import 'package:flutter/material.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import '../../maps/map_model.dart';
 
 import '../../app_theme.dart';
 import '../hud.dart';

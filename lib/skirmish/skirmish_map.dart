@@ -20,9 +20,9 @@
 // under a building is empty level 0, which is what a destroyed building
 // will leave behind.
 
-import 'package:map_extractor_prototype/map_extractor.dart';
+import '../maps/map_model.dart';
 
-import '../maps/map_repository.dart';
+import '../maps/saved_map.dart';
 
 /// The overlay for one hex. Each layer is independent.
 class HexOverlay {

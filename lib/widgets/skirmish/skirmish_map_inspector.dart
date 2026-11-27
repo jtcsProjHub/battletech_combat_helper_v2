@@ -9,7 +9,7 @@
 // record it for undo.
 
 import 'package:flutter/material.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import '../../maps/map_model.dart';
 
 import '../../app_theme.dart';
 import '../../maps/hex_selection.dart';

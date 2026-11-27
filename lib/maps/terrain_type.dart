@@ -9,7 +9,7 @@
 // is Clear terrain at level 2. Read the level and water depth from
 // HexTerrain directly.
 
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'map_model.dart';
 
 enum TerrainType {
   /// A hex with no other terrain type. Never combined with another type.

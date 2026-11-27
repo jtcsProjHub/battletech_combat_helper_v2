@@ -14,7 +14,7 @@ import 'package:uuid/uuid.dart';
 
 import '../lance.dart';
 import '../location.dart';
-import '../maps/map_repository.dart';
+import '../maps/saved_map.dart';
 import '../mech_library.dart';
 import '../pilot_data.dart';
 import 'skirmish_map.dart';

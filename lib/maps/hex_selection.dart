@@ -3,7 +3,7 @@
 // the Map Extractor prototype.
 
 import 'package:flutter/foundation.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'map_model.dart';
 
 /// What a drag on the map does.
 enum CanvasTool {

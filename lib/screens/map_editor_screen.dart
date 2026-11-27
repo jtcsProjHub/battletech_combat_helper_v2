@@ -7,7 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import '../maps/map_model.dart';
 
 import '../app_theme.dart';
 import '../maps/hex_layout.dart';

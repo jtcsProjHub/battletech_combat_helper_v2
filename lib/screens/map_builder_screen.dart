@@ -13,7 +13,7 @@ import 'dart:math' as math;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import '../maps/map_model.dart';
 import 'package:path/path.dart' as p;
 
 import '../app_theme.dart';

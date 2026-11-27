@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'package:battletech_combat_helper_v2/maps/map_model.dart';
 
 import 'package:battletech_combat_helper_v2/lance.dart';
 import 'package:battletech_combat_helper_v2/lance_repository.dart';
@@ -12,6 +12,7 @@ import 'package:battletech_combat_helper_v2/main.dart';
 import 'package:battletech_combat_helper_v2/maps/map_repository.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
+import 'package:battletech_combat_helper_v2/mech_library_loader.dart';
 import 'package:battletech_combat_helper_v2/screens/load_skirmish_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/skirmish_map_editor_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/skirmish_play_screen.dart';

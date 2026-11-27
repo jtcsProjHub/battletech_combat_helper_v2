@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:battletech_combat_helper_v2/location.dart';
 
@@ -486,46 +485,6 @@ void main() {
         expect(atlas.weightClass, WeightClass.assault);
         expect(atlas.weapons.single.quantity, 1);
       });
-    });
-  });
-
-  group('loaders', () {
-    late Directory tempDir;
-
-    setUp(
-      () => tempDir = Directory.systemTemp.createTempSync('mech_data_test'),
-    );
-    tearDown(() => tempDir.deleteSync(recursive: true));
-
-    test('loadMechsFromFile reads mechs from disk', () async {
-      final file = File('${tempDir.path}/mechs.json')
-        ..writeAsStringSync(jsonEncode([fullMech.toJson()]));
-      final mechs = await loadMechsFromFile(file.path);
-      expect(mechs.single.toJson(), fullMech.toJson());
-    });
-
-    test('loadMechsFromFile throws when the file is missing', () {
-      expect(
-        loadMechsFromFile('${tempDir.path}/missing.json'),
-        throwsA(isA<FileSystemException>()),
-      );
-    });
-
-    test('loadMechsFromAsset reads mechs from the asset bundle', () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
-      final payload = utf8.encode(jsonEncode([fullMech.toJson()]));
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMessageHandler(
-            'flutter/assets',
-            (_) async => ByteData.sublistView(payload),
-          );
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMessageHandler('flutter/assets', null),
-      );
-
-      final mechs = await loadMechsFromAsset('assets/test_mechs.json');
-      expect(mechs.single.toJson(), fullMech.toJson());
     });
   });
 }

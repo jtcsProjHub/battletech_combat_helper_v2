@@ -7,7 +7,11 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'package:map_extractor_prototype/map_extractor.dart'
+    show Homography, ImageExtraction, LabelParser, SheetGeometry;
+
+import '../../maps/extractor_bridge.dart';
+import '../../maps/map_model.dart';
 
 import '../../maps/hex_layout.dart';
 import '../../maps/hex_selection.dart';
@@ -34,10 +38,13 @@ class PhotoProjection {
     return Offset(x, y);
   }
 
-  Offset center(HexCoord hex) => _project(SheetGeometry.hexCenter(hex));
+  Offset center(HexCoord hex) =>
+      _project(SheetGeometry.hexCenter(hex.toExtractor()));
 
   List<Offset> corners(HexCoord hex) => [
-    for (final g in SheetGeometry.hexCorners(SheetGeometry.hexCenter(hex)))
+    for (final g in SheetGeometry.hexCorners(
+      SheetGeometry.hexCenter(hex.toExtractor()),
+    ))
       _project(g),
   ];
 
@@ -45,7 +52,7 @@ class PhotoProjection {
 
   HexCoord hexAt(Offset p) {
     final (u, v) = fromPreview.project(p.dx, p.dy);
-    return SheetGeometry.hexAt(u, v);
+    return SheetGeometry.hexAt(u, v).toApp();
   }
 }
 

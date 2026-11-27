@@ -11,7 +11,15 @@ import 'dart:ui' as ui;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'package:map_extractor_prototype/map_extractor.dart'
+    show
+        ExtractionJob,
+        ExtractionJobResult,
+        ImageExtraction,
+        OcrModels,
+        mergeExtractions;
+
+import 'map_model.dart';
 import 'package:path/path.dart' as p;
 
 import 'hex_selection.dart';

@@ -4,7 +4,11 @@
 // the saved-map id and an unsaved-changes flag added.
 
 import 'package:flutter/foundation.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'package:map_extractor_prototype/map_extractor.dart'
+    show HexEvidence, MergedMap;
+
+import 'extractor_bridge.dart';
+import 'map_model.dart';
 
 import 'map_repository.dart';
 
@@ -103,16 +107,20 @@ class MapSheetDraft extends ChangeNotifier {
 
   /// Replaces all terrain and review flags with an extraction result.
   void loadMerged(MergedMap merged) {
-    _grid = merged.grid;
+    _grid = merged.grid.toApp();
     _terrain
       ..clear()
-      ..addAll(merged.terrain);
+      ..addAll({
+        for (final e in merged.terrain.entries) e.key.toApp(): e.value.toApp(),
+      });
     _unverified
       ..clear()
-      ..addAll(merged.review);
+      ..addAll(merged.review.map((h) => h.toApp()));
     _evidence
       ..clear()
-      ..addAll(merged.evidence);
+      ..addAll({
+        for (final e in merged.evidence.entries) e.key.toApp(): e.value,
+      });
     notifyListeners();
   }
 

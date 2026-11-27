@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'package:battletech_combat_helper_v2/maps/map_model.dart';
 
 import 'package:battletech_combat_helper_v2/lance.dart';
 import 'package:battletech_combat_helper_v2/location.dart';

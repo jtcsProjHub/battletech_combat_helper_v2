@@ -1,6 +1,6 @@
 import 'package:battletech_combat_helper_v2/maps/terrain_type.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'package:battletech_combat_helper_v2/maps/map_model.dart';
 
 void main() {
   test('every woods and feature value maps to its own type', () {

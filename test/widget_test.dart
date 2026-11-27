@@ -7,6 +7,7 @@ import 'package:battletech_combat_helper_v2/main.dart';
 import 'package:battletech_combat_helper_v2/maps/map_repository.dart';
 import 'package:battletech_combat_helper_v2/mech_data.dart';
 import 'package:battletech_combat_helper_v2/mech_library.dart';
+import 'package:battletech_combat_helper_v2/mech_library_loader.dart';
 import 'package:battletech_combat_helper_v2/screens/lance_builder_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/lance_editor_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/map_builder_screen.dart';
@@ -45,9 +46,9 @@ void main() {
     await pumpApp(tester);
 
     // The first option shows in the menu and in the briefing panel.
-    expect(find.text('CREATE / EDIT LANCE PRECONS'), findsNWidgets(2));
+    expect(find.text('NEW SKIRMISH'), findsNWidgets(2));
+    expect(find.text('CREATE / EDIT LANCE PRECONS'), findsOneWidget);
     expect(find.text('CREATE / EDIT MAP SHEETS'), findsOneWidget);
-    expect(find.text('NEW SKIRMISH'), findsOneWidget);
     expect(find.text('LOAD SKIRMISH'), findsOneWidget);
     expect(find.text('QUIT'), findsOneWidget);
   });

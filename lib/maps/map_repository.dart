@@ -10,26 +10,12 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import 'map_model.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
 
-/// A saved map sheet and the id it is stored under.
-class SavedMap {
-  const SavedMap({required this.id, required this.sheet});
+import 'saved_map.dart';
 
-  /// A new id for a map that is not saved yet.
-  factory SavedMap.create(MapSheet sheet) =>
-      SavedMap(id: const Uuid().v4(), sheet: sheet);
-
-  final String id;
-
-  /// Printed reference data only. Per-skirmish changes, such as placed
-  /// buildings, go in a separate layer.
-  final MapSheet sheet;
-
-  String get name => sheet.name;
-}
+export 'saved_map.dart';
 
 abstract interface class MapRepository {
   /// Every saved map, sorted by name.

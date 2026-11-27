@@ -10,7 +10,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:map_extractor_prototype/map_extractor.dart';
+import '../maps/map_model.dart';
 
 import '../app_theme.dart';
 import '../history/change_history.dart';
@@ -19,6 +19,7 @@ import '../lance_repository.dart';
 import '../lance_totals.dart';
 import '../maps/map_repository.dart';
 import '../mech_library.dart';
+import '../mech_library_loader.dart';
 import '../skirmish/skirmish.dart';
 import '../skirmish/skirmish_map.dart';
 import '../widgets/hud.dart';

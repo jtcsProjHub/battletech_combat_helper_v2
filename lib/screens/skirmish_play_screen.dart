@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app_theme.dart';
 import '../mech_library.dart';
+import '../mech_library_loader.dart';
 import '../skirmish/skirmish.dart';
 import '../widgets/skirmish/skirmish_autosave.dart';
 import '../widgets/skirmish/skirmish_map_view.dart';

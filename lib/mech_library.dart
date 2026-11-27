@@ -1,10 +1,7 @@
 // File: lib/mech_library.dart
 // The loaded mech data set with the lookups the Lance Builder needs. Built once after loading; the data set is
 // small enough that every query is a cheap scan or a prebuilt map lookup.
-
-import 'package:flutter/foundation.dart' show compute;
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+// Pure Dart; loading the bundled data lives in mech_library_loader.dart.
 
 import 'era.dart';
 import 'mech_data.dart';
@@ -128,17 +125,3 @@ class MechLibrary {
     return result;
   }
 }
-
-const mechDataAsset = 'assets/base_data/mechs_clean.json';
-
-/// Loads the bundled mech data. The JSON is parsed on a background isolate so the UI doesn't stall at startup.
-Future<MechLibrary> loadMechLibrary({String assetPath = mechDataAsset}) async {
-  final jsonString = await rootBundle.loadString(assetPath);
-  return MechLibrary(await compute(mechsFromJsonString, jsonString));
-}
-
-/// The mech data, loaded once on first read and cached for the life of the app. Watch it as an AsyncValue;
-/// tests can override it with a library built from a fixture.
-final mechLibraryProvider = FutureProvider<MechLibrary>(
-  (ref) => loadMechLibrary(),
-);
