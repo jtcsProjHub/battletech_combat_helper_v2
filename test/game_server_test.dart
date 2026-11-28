@@ -1,18 +1,31 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:battletech_logic/battletech_logic.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:battletech_combat_helper_v2/net/client_protocol.dart';
+import 'package:battletech_combat_helper_v2/server/client_bundle.dart';
 import 'package:battletech_combat_helper_v2/server/game_server.dart';
 
 void main() {
+  late Directory parent;
+  late String web;
   late GameServer server;
   late HttpClient client;
 
   setUp(() async {
+    // A stand-in for client/build/web, beside a file it must not serve.
+    parent = await Directory.systemTemp.createTemp('client_web');
+    web = '${parent.path}/web';
+    await Directory('$web/canvaskit').create(recursive: true);
+    await File('$web/index.html').writeAsString('<p>client</p>');
+    await File('$web/main.dart.js').writeAsString('main();');
+    await File('$web/canvaskit/canvaskit.wasm').writeAsBytes([0, 97]);
+    await File('${parent.path}/secret.txt').writeAsString('nope');
+
     server = GameServer(
-      welcome: (player) => ServerMessages.welcome(
+      bundle: ClientBundle(web),
+      welcome: (player) => WelcomeMessage(
         player: player,
         skirmishName: 'Test Skirmish',
         lanceName: player == 0 ? 'Alpha' : 'Bravo',
@@ -25,34 +38,53 @@ void main() {
   tearDown(() async {
     client.close(force: true);
     await server.stop();
+    await parent.delete(recursive: true);
   });
 
-  Future<(int, String)> get(String path) async {
+  Future<(int, String, ContentType?)> get(String path) async {
     final request = await client.get('127.0.0.1', server.port, path);
     final response = await request.close();
-    return (response.statusCode, await response.transform(utf8.decoder).join());
+    final body = await response.transform(utf8.decoder).join();
+    return (response.statusCode, body, response.headers.contentType);
   }
 
   Future<WebSocket> connect(int player) => WebSocket.connect(
     'ws://127.0.0.1:${server.port}${ClientPaths.playerSocket(player)}',
   );
 
-  test('paths round-trip from 0-based players to 1-based URLs', () {
-    expect(ClientPaths.playerPage(0), '/player/1');
-    expect(ClientPaths.parsePlayerPage('/player/2'), 1);
-    expect(ClientPaths.parsePlayerSocket('/ws/player/1'), 0);
-    expect(ClientPaths.parsePlayerPage('/player/0'), isNull);
-    expect(ClientPaths.parsePlayerPage('/player/x'), isNull);
+  test('player pages and the bare address get the client index', () async {
+    for (final path in ['/', '/player/1', '/player/2']) {
+      final (status, body, type) = await get(path);
+      expect(status, 200, reason: path);
+      expect(body, '<p>client</p>');
+      expect(type?.mimeType, 'text/html');
+    }
+    expect((await get('/player/3')).$1, 404);
   });
 
-  test('serves each player page and 404s the rest', () async {
-    final (status, body) = await get('/player/2');
+  test('serves the build files with their types', () async {
+    final (status, body, type) = await get('/main.dart.js');
     expect(status, 200);
-    expect(body, contains('Player 2'));
-    expect(body, contains('/ws/player/2'));
-    expect((await get('/')).$2, contains('/player/1'));
-    expect((await get('/player/3')).$1, 404);
-    expect((await get('/nope')).$1, 404);
+    expect(body, 'main();');
+    expect(type?.mimeType, 'text/javascript');
+    expect(
+      (await get('/canvaskit/canvaskit.wasm')).$3?.mimeType,
+      'application/wasm',
+    );
+    expect((await get('/nope.js')).$1, 404);
+  });
+
+  test('never serves files outside the build', () async {
+    expect((await get('/../secret.txt')).$1, 404);
+    expect((await get('/%2e%2e/secret.txt')).$1, 404);
+    final bundle = ClientBundle(web);
+    expect(bundle.fileFor('/../secret.txt'), isNull);
+    expect(bundle.fileFor('/canvaskit/../../secret.txt'), isNull);
+    expect(bundle.fileFor('/canvaskit/../main.dart.js'), isNotNull);
+  });
+
+  test('locate prefers the configured folder', () {
+    expect(ClientBundle.locate(configured: web).root, web);
   });
 
   test(
@@ -63,20 +95,22 @@ void main() {
 
       final socket = await connect(1);
       final messages = socket
-          .map((m) => jsonDecode(m as String))
+          .map(
+            (m) => ServerMessage.fromJson(
+              jsonDecode(m as String) as Map<String, Object?>,
+            ),
+          )
           .asBroadcastStream();
       final first = await messages.take(2).toList();
-      expect(first[0], {
-        'type': 'welcome',
-        'player': 1,
-        'skirmishName': 'Test Skirmish',
-        'lanceName': 'Bravo',
-      });
-      expect(first[1], {'type': 'phase', 'phase': 'lobby'});
+      final welcome = first[0] as WelcomeMessage;
+      expect(welcome.player, 1);
+      expect(welcome.skirmishName, 'Test Skirmish');
+      expect(welcome.lanceName, 'Bravo');
+      expect((first[1] as PhaseMessage).phase, GamePhase.lobby);
       expect(server.connected, [0, 1]);
 
-      server.setPhase(ServerMessages.phasePlaying);
-      expect(await messages.first, {'type': 'phase', 'phase': 'playing'});
+      server.setPhase(GamePhase.playing);
+      expect(((await messages.first) as PhaseMessage).phase, GamePhase.playing);
 
       await socket.close();
       await Future.doWhile(() async {

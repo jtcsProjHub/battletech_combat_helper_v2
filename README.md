@@ -41,6 +41,21 @@ not to run a build.
 Saved lances are JSON files in `~/.local/share/io.github.jcs_personal_projects.battletech_combat_helper/lances/`, one file per lance.
 The folder name comes from `APPLICATION_ID` in `linux/CMakeLists.txt`, so changing that ID moves where the app looks for saved lances.
 
+### Hosting a game (phone client)
+
+The repository holds three Dart projects:
+
+- The root app: the desktop game server.
+- `client/`: the Flutter Web app the players open on their phones.
+- `packages/battletech_logic/`: pure Dart code shared by both.
+
+Build the phone client before you start a game with `scripts/build_client.sh`. The script writes the build to
+`client/build/web`, and the desktop app serves it from there. Rebuild it after any change in `client/` or the shared package.
+The build uses `--no-web-resources-cdn` because phones on the hotspot have no internet access.
+
+Starting a game turns on the NetworkManager hotspot profile `BattleTech-Hotspot`. The client is served on port 8080, so that
+port must be open in the firewall (`sudo ufw allow 8080/tcp`).
+
 A few resources to get you started if this is your first Flutter project:
 
 - [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)

@@ -1,8 +1,6 @@
 // File: lib/net/client_protocol.dart
 // What the game server and the phone clients agree on: the URL paths and
-// the JSON messages the server sends over a player's WebSocket. Pure Dart,
-// so the Flutter Web client can use it when it replaces the placeholder
-// pages.
+// the JSON messages the server sends over a player's WebSocket.
 //
 // Players are numbered from 0 in code (as in Skirmish.player) and from 1
 // in URLs and on screen.
@@ -28,33 +26,76 @@ abstract final class ClientPaths {
   }
 }
 
-/// Messages from the server to a player's page. Each is a JSON object with
-/// a `type` field.
-abstract final class ServerMessages {
-  static const typeWelcome = 'welcome';
-  static const typePhase = 'phase';
+/// Placeholder game phases, until the game state machine defines the real
+/// ones. Unknown names from a newer server decode as null.
+enum GamePhase {
+  /// Players are joining. The host has not started the game.
+  lobby,
 
-  /// Phases sent in a [phase] message. Placeholders until the game state
-  /// machine defines the real ones.
-  static const phaseLobby = 'lobby';
-  static const phasePlaying = 'playing';
+  /// The host started the game.
+  playing;
 
-  /// Sent once when a page connects: who the page belongs to.
-  static Map<String, Object?> welcome({
-    required int player,
-    required String skirmishName,
-    String? lanceName,
-  }) => {
-    'type': typeWelcome,
+  static GamePhase? fromName(String? name) =>
+      values.where((p) => p.name == name).firstOrNull;
+}
+
+/// A message from the server to a player's page: a JSON object with a
+/// `type` field.
+sealed class ServerMessage {
+  const ServerMessage();
+
+  Map<String, Object?> toJson();
+
+  /// Null for a message type this client does not know.
+  static ServerMessage? fromJson(Map<String, Object?> json) =>
+      switch (json['type']) {
+        WelcomeMessage.type => WelcomeMessage.fromJson(json),
+        PhaseMessage.type => PhaseMessage.fromJson(json),
+        _ => null,
+      };
+}
+
+/// Sent once when a page connects: who the page belongs to.
+class WelcomeMessage extends ServerMessage {
+  const WelcomeMessage({
+    required this.player,
+    required this.skirmishName,
+    this.lanceName,
+  });
+
+  static const type = 'welcome';
+
+  final int player;
+  final String skirmishName;
+  final String? lanceName;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': type,
     'player': player,
     'skirmishName': skirmishName,
     'lanceName': lanceName,
   };
 
-  /// Sent when the game moves to another phase, and to pages that connect
-  /// later.
-  static Map<String, Object?> phase(String phase) => {
-    'type': typePhase,
-    'phase': phase,
-  };
+  factory WelcomeMessage.fromJson(Map<String, Object?> json) => WelcomeMessage(
+    player: (json['player'] as num?)?.toInt() ?? 0,
+    skirmishName: json['skirmishName'] as String? ?? '',
+    lanceName: json['lanceName'] as String?,
+  );
+}
+
+/// Sent after the welcome, and again whenever the phase changes.
+class PhaseMessage extends ServerMessage {
+  const PhaseMessage(this.phase);
+
+  static const type = 'phase';
+
+  /// Null when the server sent a phase this client does not know.
+  final GamePhase? phase;
+
+  @override
+  Map<String, Object?> toJson() => {'type': type, 'phase': phase?.name};
+
+  factory PhaseMessage.fromJson(Map<String, Object?> json) =>
+      PhaseMessage(GamePhase.fromName(json['phase'] as String?));
 }

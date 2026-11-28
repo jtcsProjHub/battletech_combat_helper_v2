@@ -1,22 +1,34 @@
 // File: lib/server/game_server.dart
-// HTTP and WebSocket server for the players' phones. Serves each player's
-// page and keeps a WebSocket open to it, so the server can push messages
-// and see who is connected. Plain dart:io with no Flutter, so it can be
-// tested with real sockets.
+// HTTP and WebSocket server for the players' phones. Serves the phone
+// client (the Flutter Web build in client/) and keeps a WebSocket open to
+// each player's page, so the server can push messages and see who is
+// connected. Plain dart:io with no Flutter, so it can be tested with real
+// sockets.
+//
+// Every page path (/ and /player/N) gets the client's index.html. The
+// client reads its player from the URL. Other paths are the build's files.
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' show log;
 import 'dart:io';
 
-import '../net/client_protocol.dart';
-import 'client_pages.dart';
+import 'package:battletech_logic/battletech_logic.dart';
+
+import 'client_bundle.dart';
 
 class GameServer {
-  GameServer({required this.welcome, this.playerCount = 2});
+  GameServer({
+    required this.bundle,
+    required this.welcome,
+    this.playerCount = 2,
+  });
+
+  /// The phone client's web build.
+  final ClientBundle bundle;
 
   /// The welcome message for a player, built when their page connects.
-  final Map<String, Object?> Function(int player) welcome;
+  final WelcomeMessage Function(int player) welcome;
   final int playerCount;
 
   HttpServer? _http;
@@ -24,7 +36,7 @@ class GameServer {
     for (var i = 0; i < playerCount; i++) <WebSocket>{},
   ];
   final _presence = StreamController<List<int>>.broadcast();
-  Map<String, Object?> _phase = ServerMessages.phase(ServerMessages.phaseLobby);
+  GamePhase _phase = GamePhase.lobby;
 
   bool get isRunning => _http != null;
 
@@ -40,15 +52,17 @@ class GameServer {
   Future<void> start(InternetAddress address, int port) async {
     if (_http != null) return;
     final http = await HttpServer.bind(address, port);
+    // Gzip for browsers that accept it; CanvasKit's wasm shrinks a lot.
+    http.autoCompress = true;
     _http = http;
     http.listen(_handle, onError: (Object e) => log('Game server error: $e'));
   }
 
   /// Sets the phase and sends it to every page. Pages that connect later
   /// get it after their welcome.
-  void setPhase(String phase) {
-    _phase = ServerMessages.phase(phase);
-    _broadcast(_phase);
+  void setPhase(GamePhase phase) {
+    _phase = phase;
+    _broadcast(PhaseMessage(phase));
   }
 
   Future<void> stop() async {
@@ -66,6 +80,7 @@ class GameServer {
 
   Future<void> _handle(HttpRequest request) async {
     final path = request.uri.path;
+    final response = request.response;
     try {
       final socketPlayer = ClientPaths.parsePlayerSocket(path);
       if (_isPlayer(socketPlayer) &&
@@ -73,15 +88,17 @@ class GameServer {
         _accept(socketPlayer!, await WebSocketTransformer.upgrade(request));
         return;
       }
-      if (request.method == 'GET') {
+      if (request.method == 'GET' || request.method == 'HEAD') {
         final pagePlayer = ClientPaths.parsePlayerPage(path);
-        if (_isPlayer(pagePlayer)) {
-          return _html(request.response, playerPage(pagePlayer!));
+        final file = path == '/' || _isPlayer(pagePlayer)
+            ? bundle.indexFile
+            : bundle.fileFor(path);
+        if (file != null && file.existsSync()) {
+          return ClientBundle.serve(file, response);
         }
-        if (path == '/') return _html(request.response, indexPage(playerCount));
       }
-      request.response.statusCode = HttpStatus.notFound;
-      await request.response.close();
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
     } on Object catch (e) {
       log('Game server could not answer $path: $e');
     }
@@ -89,13 +106,6 @@ class GameServer {
 
   bool _isPlayer(int? player) =>
       player != null && player >= 0 && player < playerCount;
-
-  Future<void> _html(HttpResponse response, String body) async {
-    response.headers.contentType = ContentType.html;
-    response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-    response.write(body);
-    await response.close();
-  }
 
   void _accept(int player, WebSocket socket) {
     if (_http == null) {
@@ -106,8 +116,8 @@ class GameServer {
     socket.pingInterval = const Duration(seconds: 5);
     _sockets[player].add(socket);
     _emit();
-    socket.add(jsonEncode(welcome(player)));
-    socket.add(jsonEncode(_phase));
+    socket.add(jsonEncode(welcome(player).toJson()));
+    socket.add(jsonEncode(PhaseMessage(_phase).toJson()));
     void drop() {
       if (_sockets[player].remove(socket)) _emit();
     }
@@ -121,8 +131,8 @@ class GameServer {
     );
   }
 
-  void _broadcast(Map<String, Object?> message) {
-    final text = jsonEncode(message);
+  void _broadcast(ServerMessage message) {
+    final text = jsonEncode(message.toJson());
     for (final sockets in _sockets) {
       for (final s in sockets) {
         s.add(text);

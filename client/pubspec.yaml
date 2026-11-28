@@ -1,0 +1,35 @@
+name: battletech_client
+description: "Phone client for Combat Helper, served by the desktop game server."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.3
+
+dependencies:
+  battletech_logic:
+    path: ../packages/battletech_logic
+  flutter:
+    sdk: flutter
+  stream_channel: ^2.1.4
+  web: ^1.1.1
+  web_socket_channel: ^3.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Bundled so text renders on the hotspot, which has no internet for
+  # Flutter's default font download.
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: fonts/Roboto-Regular.ttf
+        - asset: fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: fonts/Roboto-Bold.ttf
+          weight: 700

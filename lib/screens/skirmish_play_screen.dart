@@ -1,7 +1,8 @@
 // File: lib/screens/skirmish_play_screen.dart
-// A confirmed skirmish. Opening it turns on hosting (hotspot plus the
-// player pages) and shows the join screen: the network QR code in the
-// middle and each player's page QR code at the sides. Start Now moves on
+// A confirmed skirmish. Opening it turns on hosting (the hotspot, plus
+// the phone client served from client/'s web build) and shows the join
+// screen: the network QR code in the middle and each player's page QR
+// code at the sides. Start Now moves on
 // to the game, still a stub that shows each player's units and the map;
 // the join codes stay reachable for phones that reconnect. Quit (or Back)
 // asks first, turns hosting off, saves, and returns to the main menu.
@@ -18,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_theme.dart';
 import '../mech_library.dart';
 import '../mech_library_loader.dart';
+import '../server/client_bundle.dart';
 import '../server/hotspot.dart';
 import '../server/skirmish_host.dart';
 import '../skirmish/skirmish.dart';
@@ -183,6 +185,7 @@ class _SkirmishPlayScreenState extends ConsumerState<SkirmishPlayScreen>
   Widget _buildError(Object error) {
     final (message, details) = switch (error) {
       HotspotException e => (e.message, e.details),
+      ClientBundleException e => (e.message, e.details),
       _ => ('Could not start the game network.', '$error'),
     };
     return _buildFrame(

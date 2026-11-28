@@ -43,6 +43,9 @@ dependencies:
   # The prototype stays the place to tune the extractor.
   map_extractor_prototype:
     path: MapExtractorPrototype
+  # Pure Dart logic shared with the phone web client (client/).
+  battletech_logic:
+    path: packages/battletech_logic
   qr_flutter: ^4.1.0
 
 dev_dependencies:

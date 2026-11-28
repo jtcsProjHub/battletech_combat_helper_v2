@@ -7,10 +7,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:battletech_logic/battletech_logic.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../net/client_protocol.dart';
 import '../skirmish/skirmish.dart';
+import 'client_bundle.dart';
 import 'game_server.dart';
 import 'host_config.dart';
 import 'hotspot.dart';
@@ -32,8 +33,9 @@ class HostSession {
 }
 
 abstract class SkirmishHost {
-  /// Turns hosting on. Throws a [HotspotException] (or a [SocketException]
-  /// when the port is taken) when it can't; start can then be retried.
+  /// Turns hosting on. Throws a [ClientBundleException] when the phone
+  /// client is not built, a [HotspotException] when the hotspot fails, or
+  /// a [SocketException] when the port is taken. Start can be retried.
   Future<HostSession> start();
 
   /// Open connections per player.
@@ -53,11 +55,14 @@ abstract class SkirmishHost {
 /// hotspot or socket is touched.
 final skirmishHostFactoryProvider =
     Provider<SkirmishHost Function(Skirmish skirmish)>(
-      (ref) =>
-          (skirmish) => NetworkSkirmishHost(
-            skirmish: skirmish,
-            hotspot: Hotspot.forPlatform(const HostConfig()),
-          ),
+      (ref) => (skirmish) {
+        const config = HostConfig();
+        return NetworkSkirmishHost(
+          skirmish: skirmish,
+          hotspot: Hotspot.forPlatform(config),
+          config: config,
+        );
+      },
     );
 
 class NetworkSkirmishHost implements SkirmishHost {
@@ -65,40 +70,44 @@ class NetworkSkirmishHost implements SkirmishHost {
     required this.skirmish,
     required this.hotspot,
     this.config = const HostConfig(),
-  }) {
-    _server = GameServer(
-      welcome: (player) => ServerMessages.welcome(
+  });
+
+  final Skirmish skirmish;
+  final Hotspot hotspot;
+  final HostConfig config;
+
+  /// Created by the first start that finds the client build.
+  GameServer? _server;
+  final _signals = <StreamSubscription<ProcessSignal>>[];
+  bool _hotspotRequested = false;
+
+  @override
+  List<int> get connected => _server?.connected ?? [0, 0];
+
+  @override
+  Stream<List<int>> get presence => _server?.presence ?? const Stream.empty();
+
+  @override
+  Future<HostSession> start() async {
+    // Find the client build first, so a missing build doesn't turn the
+    // hotspot on for nothing.
+    final server = _server ??= GameServer(
+      bundle: ClientBundle.locate(configured: config.clientWebRoot),
+      welcome: (player) => WelcomeMessage(
         player: player,
         skirmishName: skirmish.name,
         lanceName: skirmish.player(player).lance?.name,
       ),
     );
-  }
-
-  final Skirmish skirmish;
-  final Hotspot hotspot;
-  final HostConfig config;
-  late final GameServer _server;
-  final _signals = <StreamSubscription<ProcessSignal>>[];
-  bool _hotspotRequested = false;
-
-  @override
-  List<int> get connected => _server.connected;
-
-  @override
-  Stream<List<int>> get presence => _server.presence;
-
-  @override
-  Future<HostSession> start() async {
     _watchSignals();
     _hotspotRequested = true;
     final network = await hotspot.start();
-    await _server.start(network.address, config.port);
-    return HostSession(network: network, port: _server.port);
+    await server.start(network.address, config.port);
+    return HostSession(network: network, port: server.port);
   }
 
   @override
-  void announcePlaying() => _server.setPhase(ServerMessages.phasePlaying);
+  void announcePlaying() => _server?.setPhase(GamePhase.playing);
 
   @override
   Future<void> stop() async {
@@ -106,7 +115,7 @@ class NetworkSkirmishHost implements SkirmishHost {
       await s.cancel();
     }
     _signals.clear();
-    await _server.stop();
+    await _server?.stop();
     if (_hotspotRequested) {
       _hotspotRequested = false;
       await hotspot.stop();

@@ -9,6 +9,7 @@ class HostConfig {
     this.port = 8080,
     this.ssid,
     this.password,
+    this.clientWebRoot,
   });
 
   /// The NetworkManager connection profile that runs the hotspot (Linux).
@@ -22,4 +23,8 @@ class HostConfig {
   /// read from the hotspot profile.
   final String? ssid;
   final String? password;
+
+  /// Folder of the phone client's web build. When null it is searched for
+  /// (see ClientBundle.locate).
+  final String? clientWebRoot;
 }
