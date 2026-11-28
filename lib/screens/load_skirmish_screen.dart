@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_theme.dart';
 import '../lance_repository.dart';
 import '../maps/map_repository.dart';
+import '../settings/settings_repository.dart';
 import '../skirmish/skirmish.dart';
 import '../skirmish/skirmish_repository.dart';
 import '../widgets/hud.dart';
@@ -50,6 +51,9 @@ class _LoadSkirmishScreenState extends ConsumerState<LoadSkirmishScreen> {
       } on Object {
         // Keep the saved copies.
       }
+    } else {
+      // The host reads the hotspot settings when play opens.
+      await ref.read(appSettingsProvider.future);
     }
     if (!mounted) return;
     await Navigator.of(context).push<void>(

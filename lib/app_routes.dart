@@ -4,6 +4,7 @@ import 'screens/lance_builder_screen.dart';
 import 'screens/load_skirmish_screen.dart';
 import 'screens/main_menu_screen.dart';
 import 'screens/map_builder_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/skirmish_setup_screen.dart';
 
 /// Named routes for the app. Use these constants with Navigator.pushNamed.
@@ -15,6 +16,7 @@ class AppRoutes {
   static const mapBuilder = '/map-builder';
   static const newSkirmish = '/skirmish/new';
   static const loadSkirmish = '/skirmish/load';
+  static const settings = '/settings';
 
   static Map<String, WidgetBuilder> get table => {
     mainMenu: (_) => const MainMenuScreen(),
@@ -22,5 +24,6 @@ class AppRoutes {
     mapBuilder: (_) => const MapBuilderScreen(),
     newSkirmish: (_) => const SkirmishSetupScreen(),
     loadSkirmish: (_) => const LoadSkirmishScreen(),
+    settings: (_) => const SettingsScreen(),
   };
 }

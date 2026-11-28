@@ -22,6 +22,7 @@ import 'package:battletech_combat_helper_v2/screens/skirmish_play_screen.dart';
 import 'package:battletech_combat_helper_v2/screens/skirmish_setup_screen.dart';
 import 'package:battletech_combat_helper_v2/server/hotspot.dart';
 import 'package:battletech_combat_helper_v2/server/skirmish_host.dart';
+import 'package:battletech_combat_helper_v2/settings/settings_repository.dart';
 import 'package:battletech_combat_helper_v2/skirmish/skirmish_repository.dart';
 import 'package:battletech_combat_helper_v2/widgets/skirmish/skirmish_map_view.dart';
 
@@ -78,6 +79,9 @@ void main() {
           ),
           skirmishRepositoryProvider.overrideWithValue(skirmishes),
           skirmishHostFactoryProvider.overrideWithValue((_) => host),
+          settingsRepositoryProvider.overrideWithValue(
+            MemorySettingsRepository(),
+          ),
         ],
         child: const MyApp(),
       ),

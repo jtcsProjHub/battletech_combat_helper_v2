@@ -208,11 +208,11 @@ class _Header extends StatelessWidget {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.hexagon_outlined, color: AppColors.accent, size: 28),
-          SizedBox(width: 14),
-          Text(
+          const Icon(Icons.hexagon_outlined, color: AppColors.accent, size: 28),
+          const SizedBox(width: 14),
+          const Text(
             'COMBAT HELPER',
             style: TextStyle(
               fontSize: 20,
@@ -221,14 +221,21 @@ class _Header extends StatelessWidget {
               color: AppColors.text,
             ),
           ),
-          Spacer(),
-          Text(
+          const SizedBox(width: 14),
+          const Text(
             'V2',
             style: TextStyle(
               fontSize: 13,
               letterSpacing: 1,
               color: AppColors.textDim,
             ),
+          ),
+          const Spacer(),
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings, color: AppColors.accent, size: 28),
+            onPressed: () =>
+                Navigator.of(context).pushNamed(AppRoutes.settings),
           ),
         ],
       ),

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:battletech_combat_helper_v2/server/host_config.dart';
+import 'package:battletech_logic/battletech_logic.dart';
 import 'package:battletech_combat_helper_v2/server/hotspot.dart';
 
 void main() {
@@ -29,10 +29,11 @@ void main() {
     NmcliHotspot hotspot({
       int upExit = 0,
       String secrets = 'Battletech\npw\\:1\n',
+      HostConfig config = const HostConfig(hotspotConnection: 'BT'),
     }) {
       calls = [];
       return NmcliHotspot(
-        const HostConfig(hotspotConnection: 'BT'),
+        config,
         run: (exe, args) async {
           calls.add(args);
           if (args.contains('up')) {
@@ -72,9 +73,90 @@ void main() {
       );
     });
 
+    test('starting does not modify the profile', () async {
+      await hotspot().start();
+      expect(calls.any((c) => c.contains('modify')), isFalse);
+    });
+
     test('an unreadable password is left out', () async {
       final info = await hotspot(secrets: 'Battletech\n\n').start();
       expect(info.password, isNull);
+    });
+  });
+
+  group('NmcliHotspotProfiles', () {
+    late List<List<String>> calls;
+
+    NmcliHotspotProfiles profiles({int exit = 0, String out = ''}) {
+      calls = [];
+      return NmcliHotspotProfiles(
+        Nmcli(
+          run: (exe, args) async {
+            calls.add(args);
+            return ProcessResult(0, exit, out, exit == 0 ? '' : 'unknown');
+          },
+        ),
+      );
+    }
+
+    test('reads the network name and password', () async {
+      final n = await profiles(out: 'Field\\:1\nlongenough\n').read('BT');
+      expect(calls.single, [
+        '-s',
+        '-g',
+        '802-11-wireless.ssid,802-11-wireless-security.psk',
+        'connection',
+        'show',
+        'BT',
+      ]);
+      expect(n, const HotspotNetwork(ssid: 'Field:1', password: 'longenough'));
+    });
+
+    test('an unreadable password reads as null', () async {
+      final n = await profiles(out: 'Field\n\n').read('BT');
+      expect(n.password, isNull);
+    });
+
+    test('a missing profile is reported', () async {
+      expect(profiles(exit: 10).read('BT'), throwsA(isA<HotspotException>()));
+    });
+
+    test('writes the network; a null password is left alone', () async {
+      final p = profiles();
+      await p.write(
+        'BT',
+        const HotspotNetwork(ssid: 'Field', password: 'longenough'),
+      );
+      expect(calls.single, [
+        'connection',
+        'modify',
+        'BT',
+        '802-11-wireless.ssid',
+        'Field',
+        '802-11-wireless-security.key-mgmt',
+        'wpa-psk',
+        '802-11-wireless-security.psk',
+        'longenough',
+      ]);
+      await p.write('BT', const HotspotNetwork(ssid: 'Field'));
+      expect(calls.last, [
+        'connection',
+        'modify',
+        'BT',
+        '802-11-wireless.ssid',
+        'Field',
+      ]);
+    });
+
+    test('a failed write is reported without the password', () async {
+      try {
+        await profiles(
+          exit: 4,
+        ).write('BT', const HotspotNetwork(ssid: 'F', password: 'secretpw'));
+        fail('should throw');
+      } on HotspotException catch (e) {
+        expect(e.toString(), isNot(contains('secretpw')));
+      }
     });
   });
 }

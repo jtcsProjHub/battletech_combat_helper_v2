@@ -10,10 +10,10 @@ import 'dart:io';
 import 'package:battletech_logic/battletech_logic.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../settings/settings_repository.dart';
 import '../skirmish/skirmish.dart';
 import 'client_bundle.dart';
 import 'game_server.dart';
-import 'host_config.dart';
 import 'hotspot.dart';
 
 /// Where the players connect, once hosting is up.
@@ -51,12 +51,14 @@ abstract class SkirmishHost {
   Future<void> stop();
 }
 
-/// Builds the host for a skirmish. Tests override it with a fake so no
-/// hotspot or socket is touched.
+/// Builds the host for a skirmish with the saved hotspot settings. Tests
+/// override it with a fake so no hotspot or socket is touched.
 final skirmishHostFactoryProvider =
     Provider<SkirmishHost Function(Skirmish skirmish)>(
       (ref) => (skirmish) {
-        const config = HostConfig();
+        // Loaded before play opens (setup confirm, Load Skirmish).
+        final config =
+            ref.read(appSettingsProvider).value?.host ?? const HostConfig();
         return NetworkSkirmishHost(
           skirmish: skirmish,
           hotspot: Hotspot.forPlatform(config),

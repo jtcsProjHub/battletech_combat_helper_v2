@@ -20,6 +20,7 @@ import '../lance_totals.dart';
 import '../maps/map_repository.dart';
 import '../mech_library.dart';
 import '../mech_library_loader.dart';
+import '../settings/settings_repository.dart';
 import '../skirmish/skirmish.dart';
 import '../skirmish/skirmish_map.dart';
 import '../widgets/hud.dart';
@@ -258,7 +259,9 @@ class _SkirmishSetupScreenState extends ConsumerState<SkirmishSetupScreen>
   Future<void> _confirm() async {
     final library = ref.read(mechLibraryProvider).value;
     if (library == null || !_s.canConfirm) return;
-    setState(() => _s.confirm(library));
+    final settings = await ref.read(appSettingsProvider.future);
+    if (!mounted) return;
+    setState(() => _s.confirm(library, appSettings: settings));
     final error = await saveSkirmish();
     if (error != null) _snack('Could not save the skirmish: $error');
     if (!mounted) return;

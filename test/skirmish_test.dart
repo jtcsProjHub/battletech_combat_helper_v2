@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:battletech_logic/battletech_logic.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:battletech_combat_helper_v2/maps/map_model.dart';
 
@@ -93,6 +94,35 @@ void main() {
     expect(unit.structureLeft, 25);
     expect(unit.heat, 0);
     expect(s.player2.units, hasLength(1));
+  });
+
+  test('confirm snapshots the settings; later changes do not reach it', () {
+    var app = AppSettings(
+      gameplay: GameplaySettings(
+        rolls: RollPreferences.automated.withChecked('heat', checked: false),
+      ),
+    );
+    final s = ready();
+    expect(s.settings, isNull);
+    s.confirm(library, appSettings: app);
+    app = const AppSettings();
+
+    final settings = s.settings!;
+    expect(settings.players, hasLength(2));
+    expect(settings.players[0].rolls.isAutomated('heat.shutdown'), isFalse);
+    expect(settings.defaults.rolls.isAutomated('heat.shutdown'), isFalse);
+
+    settings.players[0] = settings.players[0].copyWith(name: 'Kai');
+    final loaded = Skirmish.fromJson(s.toJson());
+    expect(loaded.settings!.players[0].name, 'Kai');
+    expect(loaded.settings!.players[1].rolls.isAutomated('heat.ammo'), isFalse);
+  });
+
+  test('an active skirmish saved before settings existed gets defaults', () {
+    final json = (ready()..confirm(library)).toJson()..remove('settings');
+    final loaded = Skirmish.fromJson(json);
+    expect(loaded.settings!.players[0].rolls, RollPreferences.automated);
+    expect(Skirmish.fromJson(ready().toJson()).settings, isNull);
   });
 
   test('round-trips through JSON', () {

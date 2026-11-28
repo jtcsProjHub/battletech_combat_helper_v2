@@ -7,7 +7,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'host_config.dart';
+import 'package:battletech_logic/battletech_logic.dart';
 
 /// The hotspot's network, once it is up.
 class HotspotInfo {
@@ -76,13 +76,134 @@ class UnsupportedHotspot implements Hotspot {
 typedef ProcessRunner =
     Future<ProcessResult> Function(String executable, List<String> args);
 
+/// Runs nmcli, turning failures to start it and timeouts into
+/// [HotspotException]s.
+class Nmcli {
+  Nmcli({ProcessRunner? run}) : _run = run ?? Process.run;
+
+  final ProcessRunner _run;
+
+  Future<ProcessResult> call(
+    List<String> args, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    try {
+      return await _run('nmcli', args).timeout(timeout);
+    } on ProcessException catch (e) {
+      throw HotspotException('nmcli could not be run.', e.message);
+    } on TimeoutException {
+      // Not the arguments: they can hold the password.
+      throw const HotspotException('nmcli timed out.');
+    }
+  }
+
+  /// stderr and stdout, for a [HotspotException]'s details.
+  static String output(ProcessResult r) => [
+    r.stderr,
+    r.stdout,
+  ].map((o) => '$o'.trim()).where((o) => o.isNotEmpty).join('\n');
+
+  /// nmcli -g escapes ':' and '\' in values.
+  static String unescape(String s) =>
+      s.replaceAllMapped(RegExp(r'\\(.)'), (m) => m[1]!);
+}
+
+/// Reads and writes the network name and password stored in a hotspot
+/// profile.
+abstract class HotspotProfiles {
+  /// Throws a [HotspotException] when the profile is missing or unreadable.
+  Future<HotspotNetwork> read(String connection);
+
+  /// Writes [network] into the profile. A null password leaves the
+  /// profile's password as it is. Takes effect the next time the hotspot
+  /// starts. Throws a [HotspotException] when it fails.
+  Future<void> write(String connection, HotspotNetwork network);
+
+  factory HotspotProfiles.forPlatform() => Platform.isLinux
+      ? NmcliHotspotProfiles(Nmcli())
+      : const UnsupportedHotspotProfiles();
+}
+
+class UnsupportedHotspotProfiles implements HotspotProfiles {
+  const UnsupportedHotspotProfiles();
+
+  static final _error = HotspotException(
+    'Hotspot profiles are not supported on ${Platform.operatingSystem} yet.',
+  );
+
+  @override
+  Future<HotspotNetwork> read(String connection) async => throw _error;
+
+  @override
+  Future<void> write(String connection, HotspotNetwork network) async =>
+      throw _error;
+}
+
+class NmcliHotspotProfiles implements HotspotProfiles {
+  NmcliHotspotProfiles(this._nmcli);
+
+  final Nmcli _nmcli;
+
+  @override
+  Future<HotspotNetwork> read(String connection) async {
+    // -s shows the stored password. It comes back empty when the password
+    // is kept in a keyring agent instead of the profile.
+    final r = await _nmcli([
+      '-s',
+      '-g',
+      '802-11-wireless.ssid,802-11-wireless-security.psk',
+      'connection',
+      'show',
+      connection,
+    ]);
+    if (r.exitCode != 0) {
+      throw HotspotException(
+        'Could not read the hotspot profile "$connection".',
+        Nmcli.output(r),
+      );
+    }
+    final lines = (r.stdout as String).split('\n').map(Nmcli.unescape).toList();
+    final ssid = lines.isNotEmpty ? lines[0] : '';
+    final password = lines.length > 1 ? lines[1] : '';
+    return HotspotNetwork(
+      ssid: ssid.isEmpty ? connection : ssid,
+      password: password.isEmpty ? null : password,
+    );
+  }
+
+  @override
+  Future<void> write(String connection, HotspotNetwork network) async {
+    final password = network.password;
+    final r = await _nmcli([
+      'connection',
+      'modify',
+      connection,
+      '802-11-wireless.ssid',
+      network.ssid,
+      if (password != null) ...[
+        '802-11-wireless-security.key-mgmt',
+        'wpa-psk',
+        '802-11-wireless-security.psk',
+        password,
+      ],
+    ]);
+    if (r.exitCode != 0) {
+      throw HotspotException(
+        'Could not save the network to the hotspot profile "$connection".',
+        Nmcli.output(r),
+      );
+    }
+  }
+}
+
 /// Linux: the hotspot is a NetworkManager profile, set up once by hand
-/// (see [HostConfig.hotspotConnection]).
+/// (see [HostConfig.hotspotConnection]). Its network name and password are
+/// edited in the settings menu (see [HotspotProfiles]).
 class NmcliHotspot implements Hotspot {
-  NmcliHotspot(this.config, {ProcessRunner? run}) : _run = run ?? Process.run;
+  NmcliHotspot(this.config, {ProcessRunner? run}) : _nmcli = Nmcli(run: run);
 
   final HostConfig config;
-  final ProcessRunner _run;
+  final Nmcli _nmcli;
 
   String get _name => config.hotspotConnection;
 
@@ -96,7 +217,7 @@ class NmcliHotspot implements Hotspot {
     if (up.exitCode != 0) {
       throw HotspotException(
         'Could not turn on the hotspot "$_name".',
-        _output(up),
+        Nmcli.output(up),
       );
     }
 
@@ -107,26 +228,18 @@ class NmcliHotspot implements Hotspot {
       );
     }
 
-    var ssid = config.ssid;
-    var password = config.password;
-    if (ssid == null || password == null) {
-      // -s shows the stored password. Fails when it is kept in a keyring
-      // agent instead of the profile; the players then ask the host.
-      final r = await _nmcli([
-        '-s',
-        '-g',
-        '802-11-wireless.ssid,802-11-wireless-security.psk',
-        'connection',
-        'show',
-        _name,
-      ]);
-      final lines = r.exitCode == 0
-          ? (r.stdout as String).split('\n').map(_unescape).toList()
-          : const <String>[];
-      ssid ??= lines.isNotEmpty && lines[0].isNotEmpty ? lines[0] : _name;
-      password ??= lines.length > 1 && lines[1].isNotEmpty ? lines[1] : null;
+    // Shown to the players. If it can't be read, they ask the host.
+    HotspotNetwork network;
+    try {
+      network = await NmcliHotspotProfiles(_nmcli).read(_name);
+    } on HotspotException {
+      network = HotspotNetwork(ssid: _name);
     }
-    return HotspotInfo(ssid: ssid, password: password, address: address);
+    return HotspotInfo(
+      ssid: network.ssid,
+      password: network.password,
+      address: address,
+    );
   }
 
   @override
@@ -157,28 +270,6 @@ class NmcliHotspot implements Hotspot {
     }
     return null;
   }
-
-  Future<ProcessResult> _nmcli(
-    List<String> args, {
-    Duration timeout = const Duration(seconds: 15),
-  }) async {
-    try {
-      return await _run('nmcli', args).timeout(timeout);
-    } on ProcessException catch (e) {
-      throw HotspotException('nmcli could not be run.', e.message);
-    } on TimeoutException {
-      throw HotspotException('nmcli ${args.join(' ')} timed out.');
-    }
-  }
-
-  static String _output(ProcessResult r) => [
-    r.stderr,
-    r.stdout,
-  ].map((o) => '$o'.trim()).where((o) => o.isNotEmpty).join('\n');
-
-  /// nmcli -g escapes ':' and '\' in values.
-  static String _unescape(String s) =>
-      s.replaceAllMapped(RegExp(r'\\(.)'), (m) => m[1]!);
 }
 
 /// The first address in nmcli's IP4.ADDRESS output, e.g.

@@ -9,7 +9,11 @@
 // the skirmish is still in setup, a copy is refreshed from its precon when
 // the skirmish is loaded (see Skirmish.refreshFromSources), unless it was
 // adjusted on the overview step (variant swaps, pilot changes).
+//
+// Settings work the same way: confirming takes a snapshot of the app
+// settings (see SkirmishSettings in battletech_logic).
 
+import 'package:battletech_logic/battletech_logic.dart';
 import 'package:uuid/uuid.dart';
 
 import '../lance.dart';
@@ -182,6 +186,7 @@ class Skirmish {
     SkirmishPlayer? player2,
     this.map,
     this.turn = 0,
+    this.settings,
     List<String>? log,
   }) : updatedAt = updatedAt ?? createdAt,
        player1 = player1 ?? SkirmishPlayer(),
@@ -228,6 +233,9 @@ class Skirmish {
   /// 0 during setup, 1 from confirmation on.
   int turn;
 
+  /// Null during setup. Taken from the app settings on confirmation.
+  SkirmishSettings? settings;
+
   /// Plain-text events, oldest first.
   final List<String> log;
 
@@ -255,9 +263,13 @@ class Skirmish {
   bool get hasSelections =>
       player1.lance != null || player2.lance != null || map != null;
 
-  /// Locks in the setup: builds each player's units from their lance and
-  /// starts turn 1. Mechs missing from the catalog are skipped.
-  void confirm(MechLibrary library) {
+  /// Locks in the setup: builds each player's units from their lance,
+  /// snapshots the skirmish settings from [appSettings], and starts turn 1.
+  /// Mechs missing from the catalog are skipped.
+  void confirm(
+    MechLibrary library, {
+    AppSettings appSettings = const AppSettings(),
+  }) {
     if (!canConfirm) {
       throw StateError('Both lances and the map must be chosen first');
     }
@@ -271,6 +283,7 @@ class Skirmish {
         ]);
     }
     map!.lockIn();
+    settings = SkirmishSettings.snapshot(appSettings);
     phase = SkirmishPhase.active;
     turn = 1;
     log.add(
@@ -322,6 +335,7 @@ class Skirmish {
     'player2': player2.toJson(),
     if (map case final m?) 'map': m.toJson(),
     'turn': turn,
+    if (settings case final s?) 'settings': s.toJson(),
     'log': log,
   };
 
@@ -330,14 +344,15 @@ class Skirmish {
         DateTime.tryParse(json['createdAt'] as String? ?? '') ??
         DateTime.fromMillisecondsSinceEpoch(0);
     final mapJson = json['map'];
+    final phase =
+        SkirmishPhase.values.asNameMap()[json['phase']] ?? SkirmishPhase.setup;
+    final settingsJson = json['settings'];
     return Skirmish(
       id: json['id'] as String,
       name: json['name'] as String? ?? defaultName(created),
       createdAt: created,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
-      phase:
-          SkirmishPhase.values.asNameMap()[json['phase']] ??
-          SkirmishPhase.setup,
+      phase: phase,
       step: SetupStep.values.asNameMap()[json['step']] ?? SetupStep.player1,
       player1: _playerFromJson(json['player1']),
       player2: _playerFromJson(json['player2']),
@@ -345,6 +360,12 @@ class Skirmish {
           ? SkirmishMap.fromJson(mapJson.cast<String, Object?>())
           : null,
       turn: (json['turn'] as num?)?.toInt() ?? 0,
+      // Skirmishes confirmed before settings existed get the defaults.
+      settings: settingsJson is Map
+          ? SkirmishSettings.fromJson(settingsJson)
+          : phase == SkirmishPhase.active
+          ? SkirmishSettings()
+          : null,
       log: [for (final e in (json['log'] as List<dynamic>? ?? const [])) '$e'],
     );
   }
